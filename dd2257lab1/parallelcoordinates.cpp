@@ -104,8 +104,8 @@ void ParallelCoordinates::process()
 		for (auto r = 0; r < numberOfRows; ++r) {
 			parallelLinesAxis.push_back({ vec3(c * columnSpacing + padding, (column->getAsDouble(r) - mins[c]) / (maxs[c] - mins[c]) * (1.0f - 2.0f*padding) + padding, 0), vec3(0), vec3(0.2f, 0.5f, 0), propColorLines.get() });
 			if (c > 0) {
-				indexBufferLines->add(static_cast<std::uint32_t>(parallelLinesAxis.size() - 1 - r));
-				indexBufferLines->add(static_cast<std::uint32_t>(parallelLinesAxis.size() - 1));
+				indexBufferParallelLines->add(static_cast<std::uint32_t>(parallelLinesAxis.size() - 1 - numberOfRows));
+				indexBufferParallelLines->add(static_cast<std::uint32_t>(parallelLinesAxis.size() - 1));
 			}
 		}
 	}
