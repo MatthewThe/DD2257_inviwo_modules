@@ -76,6 +76,9 @@ public:
     // Properties capturing the currently chosen columns of the input data
     OptionPropertyInt propXAxis;
     OptionPropertyInt propYAxis;
+	BoolProperty propSelectedScaling;
+
+
 
 //Attributes
 private:

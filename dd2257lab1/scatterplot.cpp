@@ -10,6 +10,7 @@
 
 #include <dd2257lab1/scatterplot.h>
 #include <inviwo/core/datastructures/geometry/basicmesh.h>
+#include <iostream>
 
 namespace inviwo
 {
@@ -42,6 +43,8 @@ ScatterPlot::ScatterPlot()
         InvalidationLevel::InvalidOutput, PropertySemantics::Color)
     , propXAxis("xAxis", "X Axis")
     , propYAxis("yAXis", "Y Axis")
+	, propSelectedScaling("prop", "SelectedScaling",true)
+	
 {
 
     // Register ports
@@ -54,6 +57,9 @@ ScatterPlot::ScatterPlot()
     addProperty(propColorAxes);
     addProperty(propXAxis);
     addProperty(propYAxis);
+	addProperty(propSelectedScaling);
+
+
 
     // When the data changes we need new axis labels 
     inData.onChange([&]() { updateAxisLabels(); });
@@ -67,6 +73,7 @@ void ScatterPlot::updateAxisLabels()
     // Default values
     int selectedX = 0;
     int selectedY = 1;
+	
 
     // Save old values in order to recover them later
     if (propXAxis.getValues().size() > 0)
@@ -92,12 +99,16 @@ void ScatterPlot::updateAxisLabels()
         i++;
     }
 
+
     // Make sure selected values are within range
     selectedX = std::min(selectedX, i - 2);
     selectedY = std::min(selectedY, i - 2);
+	
 
     propXAxis.setSelectedIndex(selectedX);
     propYAxis.setSelectedIndex(selectedY);
+
+
 }
 
 void ScatterPlot::process()
@@ -107,6 +118,7 @@ void ScatterPlot::process()
     // Get data columns but skip over the index (=first) column
     auto dataX = dataFrame->getColumn(propXAxis.get() + 1);
     auto dataY = dataFrame->getColumn(propYAxis.get() + 1);
+	int scale = propSelectedScaling.get();
 
     size_t numberOfRows = dataFrame->getNumberOfRows();
 
@@ -129,15 +141,54 @@ void ScatterPlot::process()
     // TODO: Add points according the data within the chosen columns.
 
     // You can access values within one column by their index
-    size_t index = 0;
-    float exampleValueX = (float)dataX->getAsDouble(index);
+	double maxX = 0;
+	double maxY = 0;
+	double minX = HUGE_VAL;
+	double minY = HUGE_VAL;
+	double padding = 0.05;
+	double L = 1;
+	int selectedScaling = scale;
+	size_t size_buffer = dataX->getSize();
+	//Finding max
+	for (size_t index = 0; index < size_buffer; index++)
+	{
+		if (dataX->getAsDouble(index) > maxX)
+		{
+			maxX = dataX->getAsDouble(index);
+		}
+		if (dataY->getAsDouble(index) > maxY)
+		{
+			maxY = dataY->getAsDouble(index);
+		}
+
+		if (dataX->getAsDouble(index) < minX)
+		{
+			minX = dataX->getAsDouble(index);
+		}
+		if (dataY->getAsDouble(index) < minY)
+		{
+			minY = dataY->getAsDouble(index);
+		}
+	}
+
+	//Adding points and scaling with maxX & maxY
+	
+	for (size_t index = 0; index < dataX->getSize(); index++)
+	{
+		verticesPoints.push_back({ vec3(( L * padding+ L * ((double)1-2*padding)*(dataX->getAsDouble(index)- minX*selectedScaling)/(maxX- minX*selectedScaling)  ),(L * padding + L * ((double)1 - 2*padding)*(dataY->getAsDouble(index)- minY*selectedScaling)/ (maxY- minY*selectedScaling)),0), vec3(0), vec3(0), propColorPoint.get() });
+		indexBufferPoints->add(static_cast<std::uint32_t>(index));
+		
+
+	}
+    
+	//float exampleValueX = (float)dataX->getAsDouble(index);
 
     // A single vertex is defined a position, a normal, a texture coordinates and a color:
     // {pos, norm, texcor, color}
     // For this simple example we are only using the position
-    verticesPoints.push_back({ vec3(0.4, 0.5, 0), vec3(0), vec3(0), propColorPoint.get() });
+    //verticesPoints.push_back({ vec3(0.4, 0.5, 0), vec3(0), vec3(0), propColorPoint.get() });
     // Add index of the vertex (it is the one with index 0 in the vertices vector)
-    indexBufferPoints->add(static_cast<std::uint32_t>(0));
+    //indexBufferPoints->add(static_cast<std::uint32_t>(0));
 
     // Add the vertices to the mesh
     meshPoints->addVertices(verticesPoints);
@@ -151,10 +202,16 @@ void ScatterPlot::process()
         meshLines->addIndexBuffer(DrawType::Lines, ConnectivityType::None);
 
     // TODO: Add lines corresponding to axis
-    verticesAxis.push_back({ vec3(0.2f, 0.5f, 0), vec3(0), vec3(0), propColorAxes.get() });
+	//X
+    verticesAxis.push_back({ vec3(padding, padding, 0), vec3(0), vec3(0), propColorAxes.get() });
     indexBufferLines->add(static_cast<std::uint32_t>(0));
-    verticesAxis.push_back({ vec3(0.1f, 0.9f, 0), vec3(0), vec3(0), propColorAxes.get()});
+    verticesAxis.push_back({ vec3(L*(1-padding), padding, 0), vec3(0), vec3(0), propColorAxes.get()});
     indexBufferLines->add(static_cast<std::uint32_t>(1));
+	//Y
+	verticesAxis.push_back({ vec3(padding, padding, 0), vec3(0), vec3(0), propColorAxes.get() });
+	indexBufferLines->add(static_cast<std::uint32_t>(2));
+	verticesAxis.push_back({ vec3(padding, L*(1 - padding), 0), vec3(0), vec3(0), propColorAxes.get() });
+	indexBufferLines->add(static_cast<std::uint32_t>(3));
 
     meshLines->addVertices(verticesAxis);
 
