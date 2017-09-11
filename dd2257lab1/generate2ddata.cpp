@@ -102,9 +102,17 @@ namespace inviwo
 			break;
 		}
 		case DataShape::Hyperbola: {
+			int step_hyperbola = 36;
+			int a, b = 5;
+			float x_hyperbola[36], y_hyperbola[36] = { 0. };
+			for (int i = 0; i < step_hyperbola; i++) {
+				x_hyperbola[i] = a*cosh(i * 360 / step_hyperbola);
+				y_hyperbola[i] = b*sinh(i * 360 / step_hyperbola);
+				addPoint(x_hyperbola[i], y_hyperbola[i]);
+			}
 
 			// TODO: Add points that lie on a hyperbola
-			addPoint(0.3f, 0.4f);
+			//addPoint(0.3f, 0.4f);
 
 			break;
 		}
