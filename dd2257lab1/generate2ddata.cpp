@@ -47,8 +47,6 @@ namespace inviwo
 		propdataShape.addOption("circle", "Circle", DataShape::Circle);
 		propdataShape.addOption("hyperbola", "Hyperbola", DataShape::Hyperbola);
 		propdataShape.set(DataShape::Line);
-		//propdataShape.set(DataShape::Circle);
-		//propdataShape.set(DataShape::Hyperbola);
 		propdataShape.setCurrentStateAsDefault();
 	}
 
@@ -72,48 +70,47 @@ namespace inviwo
 		switch (propdataShape.get())
 		{
 		case DataShape::Line: {
-			int step_line = 20;
-			float stepLengthX_line = 0.5;
-			float stepLengthY_line = 0.5;
 			// TODO: Add points that lie on a line with negative slope
-			//addPoint(0.3f, 0.4f);
-			float x_line[20] = { 0. };
-			float y_line[20] = { 20. };
-			for (int i = 0; i < step_line; i++) {
-				x_line[i] += i*stepLengthX_line;
-				y_line[i] -= i*stepLengthY_line;
+			int steps_line = 20;			// steps is equivalent to data points amount
+			float stepLengthX_line = 1.0;
+			float stepLengthY_line = 0.5;
+			float originX_line = 1.0;
+			float originY_line = 20.0;
+			float x_line[20], y_line[20] = { 0. };
+			for (int i = 0; i < steps_line; i++) {
+				x_line[i] = originX_line + i*stepLengthX_line;
+				y_line[i] = originY_line - i*stepLengthY_line;
 				addPoint(x_line[i], y_line[i]);
 			}
 			break;
 		}
 		case DataShape::Circle: {
-			int step_circle = 36;
-			float r = 10;
-			int x_origin, y_origin = 5;
-			float x_circle[36], y_circle[36] = { 0. };
 			// TODO: Add points that lie on a circle
-			for (int i = 0; i < step_circle; i++) {
-				x_circle[i] = x_origin + r*cos(i * (360 / step_circle) * 2 * PI / 180);
-				y_circle[i] = y_origin + r*sin(i * (360 / step_circle) * 2 * PI / 180);
+			int steps_circle = 36;
+			float r = 10.0;
+			float originX_circle = 5.0;
+			float originY_circle = 5.0;
+			float x_circle[36], y_circle[36] = { 0. };
+			for (int i = 0; i < steps_circle; i++) {
+				x_circle[i] = originX_circle + r*cos(i * 2 * PI / steps_circle);
+				y_circle[i] = originY_circle + r*sin(i * 2 * PI / steps_circle);
 				addPoint(x_circle[i], y_circle[i]);
 			}
-			//addPoint(0.24f, 0.4f);
-
 			break;
 		}
 		case DataShape::Hyperbola: {
-			int step_hyperbola = 36;
-			int a, b = 5;
+			// TODO: Add points that lie on a hyperbola
+			int steps_hyperbola = 3;
+			float a = 1.0;
+			float b = 1.0;
+			float originX_hyperbola = 5.0;
+			float originY_hyperbola = 5.0;
 			float x_hyperbola[36], y_hyperbola[36] = { 0. };
-			for (int i = 0; i < step_hyperbola; i++) {
-				x_hyperbola[i] = a*cosh(i * 360 / step_hyperbola);
-				y_hyperbola[i] = b*sinh(i * 360 / step_hyperbola);
+			for (int i = 0; i < steps_hyperbola; i++) {
+				x_hyperbola[i] = a*coshf(-3 + i * 3 / steps_hyperbola) + originX_hyperbola;
+				y_hyperbola[i] = b*sinhf(-3 + i * 3 / steps_hyperbola) + originY_hyperbola;
 				addPoint(x_hyperbola[i], y_hyperbola[i]);
 			}
-
-			// TODO: Add points that lie on a hyperbola
-			//addPoint(0.3f, 0.4f);
-
 			break;
 		}
 		default: {
