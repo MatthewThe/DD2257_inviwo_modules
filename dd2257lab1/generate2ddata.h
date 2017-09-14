@@ -14,6 +14,7 @@
 #include <inviwo/core/common/inviwo.h>
 #include <inviwo/core/processors/processor.h>
 #include <inviwo/core/properties/ordinalproperty.h>
+#include <inviwo/core/properties/optionproperty.h>
 #include <inviwo/core/ports/dataoutport.h>
 #include <dd2257lab1/utils/dataframe.h>
 

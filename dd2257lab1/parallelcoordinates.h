@@ -13,8 +13,9 @@
 #include <dd2257lab1/dd2257lab1moduledefine.h>
 #include <inviwo/core/common/inviwo.h>
 #include <inviwo/core/processors/processor.h>
-#include <dd2257lab1/utils/dataframe.h>
 #include <inviwo/core/ports/meshport.h>
+#include <inviwo/core/properties/ordinalproperty.h>
+#include <dd2257lab1/utils/dataframe.h>
 
 namespace inviwo
 {
