@@ -1,0 +1,18 @@
+# AmiraMesh BINARY-LITTLE-ENDIAN 2.1
+
+
+define Lattice 8 8 1
+
+Parameters {
+    Content "8x8x1 float, uniform coordinates",
+    BoundingBox -2 2 -3 3 -1 1,
+    CoordType "uniform"
+}
+
+Lattice { float Data } @1
+
+# Data section follows
+@1
+¡?Ù?i>Ìûe?Òıè>Á™à>=}>‰aÄ>+a>‘‹>¥aR=å	?¤R>õ?<#?¬ñÕ>Äb>¼)Ş>5>‡»C?B!?®ıÖ>Ç¿c?ß‰ï>wI;?!]?®W?
+Õ„>ºÁ\=@ñ?¼^>G?·o[?!=v1»>ëAõ>Øék>Øõk?´ËY?*!=Øñë=O?Úİl?
+7?–K?B!!?W±+>Âa?¼%^?ví:?"?Ë?qŠ>…B<ªU?`Á/?Mq¦>ºá\?ÅYb>zÃ<?™mÌ>Q­¨>Kk%?
