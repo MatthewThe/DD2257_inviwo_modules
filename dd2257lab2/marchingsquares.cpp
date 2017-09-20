@@ -160,19 +160,24 @@ void MarchingSquares::process()
 	auto mesh = std::make_shared<BasicMesh>();
 	std::vector<BasicMesh::Vertex> vertices;
 
+    auto indexBufferLines =
+        mesh->addIndexBuffer(DrawType::Lines, ConnectivityType::None);
+	
     // Values within the input data are accessed by the function below
     // It's input is the VolumeRAM from above, the dimensions of the volume
     // and the x- and y- index of the position to be accessed where
     // x is in [0, dims.x-1] and y is in [0, dims.y-1]
     float valueat00 = getInputValue(vr, dims, 0, 0);
     LogProcessorInfo("Value at (0,0) is: " << valueat00);
+	LogProcessorInfo("Value at (" << dims.x-1 << "," << dims.y-1 << ") is: " << getInputValue(vr, dims, dims.x-1, dims.y-1));
     // You can assume that dims.z = 1 and do not need to consider others cases
 
     // Grid
-
+	
+	float padding = 0.05f;
     if (propShowGrid.get())
     {
-        // TODO: Add grid lines of the given color 
+        // TODO: Add grid lines of the given color
     }
 
     // Iso contours
@@ -181,6 +186,55 @@ void MarchingSquares::process()
     {
         // TODO: Draw a single isoline at the specified isovalue (propIsoValue) 
         // and color it with the specified color (propIsoColor)
+		
+		auto transformX = [dims, padding](auto x) { return padding + static_cast<float>(x)/(dims.x-1)*(1.0 - 2*padding); };
+		auto transformY = [dims, padding](auto y) { return padding + static_cast<float>(y)/(dims.y-1)*(1.0 - 2*padding); };
+		
+		auto isoValue = propIsoValue.get();
+		for (auto c = 0ul; c < dims.x - 1; ++c) {
+			for (auto r = 0ul; r < dims.y - 1; ++r) {
+				float bottomLeft = getInputValue(vr, dims, c, r);
+				float bottomRight = getInputValue(vr, dims, c+1, r);
+				float topLeft = getInputValue(vr, dims, c, r+1);
+				float topRight = getInputValue(vr, dims, c+1, r+1);
+				
+				std::vector<BasicMesh::Vertex> localVertices;
+				float intersection = getIsoIntersection(bottomLeft, bottomRight, isoValue);
+				if (intersection >= 0) {
+					localVertices.push_back({ vec3(transformX(c + intersection), transformY(r), 0), vec3(0), vec3(0.2f, 0.5f, 0), propIsoColor.get() });
+				}
+				
+				intersection = getIsoIntersection(bottomLeft, topLeft, isoValue);
+				if (intersection >= 0) {
+					localVertices.push_back({ vec3(transformX(c), transformY(r+intersection), 0), vec3(0), vec3(0.2f, 0.5f, 0), propIsoColor.get() });
+				}
+				
+				intersection = getIsoIntersection(bottomRight, topRight, isoValue);
+				if (intersection >= 0) {
+					localVertices.push_back({ vec3(transformX(c + 1), transformY(r+intersection), 0), vec3(0), vec3(0.2f, 0.5f, 0), propIsoColor.get() });
+				}
+				
+				intersection = getIsoIntersection(topLeft, topRight, isoValue);
+				if (intersection >= 0) {
+					localVertices.push_back({ vec3(transformX(c + intersection), transformY(r+1), 0), vec3(0), vec3(0.2f, 0.5f, 0), propIsoColor.get() });
+				}
+				
+				std::sort(localVertices.begin(), localVertices.end(), 
+				    [](const BasicMesh::Vertex & a, const BasicMesh::Vertex & b) -> bool
+				{ 
+				    return a.pos.x < b.pos.x; 
+				});
+				
+				//LogProcessorInfo("IV: " << isoValue << " BL: " << bottomLeft << " BR: " << bottomRight << " TL: " << topLeft << " TR: " << topRight);
+				//LogProcessorInfo("Number of local vertices: " << localVertices.size());
+				for (auto vertex : localVertices) {
+					vertices.push_back(vertex);
+
+					//LogProcessorInfo("Vertex (" << vertex.pos.x << "," << vertex.pos.y << ")");
+					indexBufferLines->add(static_cast<std::uint32_t>(vertices.size()-1));
+				}
+			}
+		}
     }
     else
     {
@@ -207,6 +261,18 @@ void MarchingSquares::process()
 
 	mesh->addVertices(vertices);
 	meshOut.setData(mesh);
+}
+
+float MarchingSquares::getIsoIntersection(float v1, float v2, float iso) {
+	if (std::min(v1, v2) <= iso && iso < std::max(v1, v2)) {
+		auto diff0 = std::abs(v1 - iso);
+		auto diff1 = std::abs(v2 - iso);
+		if (diff0 + diff1 != 0) { // handle the special case that the iso line is on an edge
+			//LogProcessorInfo("Intersection: " << diff0 / (diff0 + diff1) << " v1 " << v1 << " v2 " << v2);
+			return diff0 / (diff0 + diff1);
+		}
+	}
+	return -1.0f;
 }
 
 } // namespace

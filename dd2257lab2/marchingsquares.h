@@ -72,7 +72,7 @@ protected:
     // (TODO: Helper functions can be defined here and then implemented in the .cpp)
 
     double getInputValue(const VolumeRAM* data, size3_t dims, size_t x, size_t y);
-  
+  	float getIsoIntersection(float v1, float v2, float iso);
 
 //Ports
 public:
