@@ -101,12 +101,12 @@ MarchingSquares::MarchingSquares()
         }
         else
         {
-            util::hide(propIsoValue);
-            util::show(propIsoColor, propNumContours);
+            //util::hide(propIsoValue);
+            //util::show(propIsoColor, propNumContours);
             // TODO (Bonus): Comment out above if you are using the transfer function
             // and comment in below instead
-            // util::hide(propIsoValue, propIsoColor);
-            // util::show(propNumContours, propIsoTransferFunc);
+            util::hide(propIsoValue, propIsoColor);
+            util::show(propNumContours, propIsoTransferFunc);
         }
     });
 
@@ -238,6 +238,7 @@ void MarchingSquares::process()
     }
     else
     {
+		
         // TODO: Draw a the given number (propNumContours) of isolines between 
         // the minimum and maximum value
         // Hint: If the number of contours to be drawn is 1, the iso value for
@@ -250,7 +251,62 @@ void MarchingSquares::process()
         // is the color for the minimum value in the data
         // vec4 color = propIsoTransferFunc.get().sample(1.0f);
         // is the color for the maximum value in the data
+		auto transformX = [dims, padding](auto x) { return padding + static_cast<float>(x) / (dims.x - 1)*(1.0 - 2 * padding); };
+		auto transformY = [dims, padding](auto y) { return padding + static_cast<float>(y) / (dims.y - 1)*(1.0 - 2 * padding); };
 
+		auto isoValue = propIsoValue.get();
+		auto isoStepSize = (maxValue - minValue )/ (propNumContours.get()+1);
+		auto color = propIsoTransferFunc.get();
+		for (auto n = 1ul; n <= propNumContours.get(); n++){
+			isoValue = minValue+ (isoStepSize * n);
+			
+			auto color1 = color.sample((isoValue-minValue)/(maxValue-minValue));
+
+		for (auto c = 0ul; c < dims.x - 1; ++c) {
+			for (auto r = 0ul; r < dims.y - 1; ++r) {
+				float bottomLeft = getInputValue(vr, dims, c, r);
+				float bottomRight = getInputValue(vr, dims, c + 1, r);
+				float topLeft = getInputValue(vr, dims, c, r + 1);
+				float topRight = getInputValue(vr, dims, c + 1, r + 1);
+
+				std::vector<BasicMesh::Vertex> localVertices;
+				float intersection = getIsoIntersection(bottomLeft, bottomRight, isoValue);
+				if (intersection >= 0) {
+					localVertices.push_back({ vec3(transformX(c + intersection), transformY(r), 0), vec3(0), vec3(0.2f, 0.5f, 0), color1 });
+				}
+
+				intersection = getIsoIntersection(bottomLeft, topLeft, isoValue);
+				if (intersection >= 0) {
+					localVertices.push_back({ vec3(transformX(c), transformY(r + intersection), 0), vec3(0), vec3(0.2f, 0.5f, 0),color1 });
+				}
+
+				intersection = getIsoIntersection(bottomRight, topRight, isoValue);
+				if (intersection >= 0) {
+					localVertices.push_back({ vec3(transformX(c + 1), transformY(r + intersection), 0), vec3(0), vec3(0.2f, 0.5f, 0), color1 });
+				}
+
+				intersection = getIsoIntersection(topLeft, topRight, isoValue);
+				if (intersection >= 0) {
+					localVertices.push_back({ vec3(transformX(c + intersection), transformY(r + 1), 0), vec3(0), vec3(0.2f, 0.5f, 0), color1 });
+				}
+
+				std::sort(localVertices.begin(), localVertices.end(),
+					[](const BasicMesh::Vertex & a, const BasicMesh::Vertex & b) -> bool
+				{
+					return a.pos.x < b.pos.x;
+				});
+
+				//LogProcessorInfo("IV: " << isoValue << " BL: " << bottomLeft << " BR: " << bottomRight << " TL: " << topLeft << " TR: " << topRight);
+				//LogProcessorInfo("Number of local vertices: " << localVertices.size());
+				for (auto vertex : localVertices) {
+					vertices.push_back(vertex);
+
+					//LogProcessorInfo("Vertex (" << vertex.pos.x << "," << vertex.pos.y << ")");
+					indexBufferLines->add(static_cast<std::uint32_t>(vertices.size() - 1));
+				}
+			}
+		}
+		}
     }
 
     // Note: It is possible to add multiple index buffers to the same mesh,
