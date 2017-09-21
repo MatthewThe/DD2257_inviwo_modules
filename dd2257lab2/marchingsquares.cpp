@@ -1,5 +1,5 @@
 /*********************************************************************
- *  Author  : Himangshu Saikia, Wiebke Koepp, ...
+ *  Author  : Himangshu Saikia, Wiebke Koepp, Matthew The, Pontus Karl Georg Stradberg, Jiayao Yu
  *  Init    : Monday, September 11, 2017 - 12:58:42
  *
  *  Project : KTH Inviwo Modules
