@@ -73,6 +73,7 @@ protected:
 
     double getInputValue(const VolumeRAM* data, size3_t dims, size_t x, size_t y);
   	float getIsoIntersection(float v1, float v2, float iso);
+	std::vector<BasicMesh::Vertex> solveAmbiguity(float iso, float tl, float bl, float br, float tr, float * v, std::vector<BasicMesh::Vertex> gridIso);
 
 //Ports
 public:

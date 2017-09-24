@@ -184,11 +184,13 @@ void MarchingSquares::process()
     if (propShowGrid.get())
     {
         // TODO: Add grid lines of the given color
-		for (int i = 0, j = 0; i < dims.x, j < dims.y; i++, j++) {
-			gridVertices.push_back({ vec3(transformX(i),transformY(0),0), vec3(0), vec3(0), propGridColor.get() });
-			gridVertices.push_back({ vec3(transformX(i),transformY(dims.y),0), vec3(0), vec3(0), propGridColor.get() });
-			gridVertices.push_back({ vec3(transformX(0),transformY(j),0), vec3(0),vec3(0),propGridColor.get() });
-			gridVertices.push_back({ vec3(transformX(dims.x),transformY(j),0), vec3(0), vec3(0), propGridColor.get() });
+		for (auto c = 0ul; c < dims.x; c++) {
+			gridVertices.push_back({ vec3(transformX(c),transformY(0),0), vec3(0), vec3(0), propGridColor.get() });
+			gridVertices.push_back({ vec3(transformX(c),transformY(dims.y-1),0), vec3(0), vec3(0), propGridColor.get() });
+		}
+		for (auto r = 0ul; r < dims.y; r++) {
+			gridVertices.push_back({ vec3(transformX(0),transformY(r),0), vec3(0),vec3(0),propGridColor.get() });
+			gridVertices.push_back({ vec3(transformX(dims.x-1),transformY(r),0), vec3(0), vec3(0), propGridColor.get() });
 		}
 		for (auto vertex : gridVertices) {
 			vertices.push_back(vertex);
@@ -215,31 +217,48 @@ void MarchingSquares::process()
 				float topRight = getInputValue(vr, dims, c+1, r+1);
 				
 				std::vector<BasicMesh::Vertex> localVertices;
-				float intersection = getIsoIntersection(bottomLeft, bottomRight, isoValue);
+				float intersections[4] = { 0. };
+				float intersection = getIsoIntersection(bottomLeft, topLeft, isoValue);
 				if (intersection >= 0) {
-					localVertices.push_back({ vec3(transformX(c + intersection), transformY(r), 0), vec3(0), vec3(0.2f, 0.5f, 0), propIsoColor.get() });
+					localVertices.push_back({ vec3(transformX(c), transformY(r + intersection), 0), vec3(0), vec3(0.2f, 0.5f, 0), propIsoColor.get() });
+					intersections[0] = intersection;
 				}
 				
-				intersection = getIsoIntersection(bottomLeft, topLeft, isoValue);
+				intersection = getIsoIntersection(bottomLeft, bottomRight, isoValue);
 				if (intersection >= 0) {
-					localVertices.push_back({ vec3(transformX(c), transformY(r+intersection), 0), vec3(0), vec3(0.2f, 0.5f, 0), propIsoColor.get() });
+					localVertices.push_back({ vec3(transformX(c + intersection), transformY(r), 0), vec3(0), vec3(0.2f, 0.5f, 0), propIsoColor.get() });
+					intersections[1] = intersection;
 				}
 				
 				intersection = getIsoIntersection(bottomRight, topRight, isoValue);
 				if (intersection >= 0) {
 					localVertices.push_back({ vec3(transformX(c + 1), transformY(r+intersection), 0), vec3(0), vec3(0.2f, 0.5f, 0), propIsoColor.get() });
+					intersections[2] = intersection;
 				}
 				
 				intersection = getIsoIntersection(topLeft, topRight, isoValue);
 				if (intersection >= 0) {
 					localVertices.push_back({ vec3(transformX(c + intersection), transformY(r+1), 0), vec3(0), vec3(0.2f, 0.5f, 0), propIsoColor.get() });
+					intersections[3] = intersection;
 				}
 				
-				std::sort(localVertices.begin(), localVertices.end(), 
-				    [](const BasicMesh::Vertex & a, const BasicMesh::Vertex & b) -> bool
-				{ 
-				    return a.pos.x < b.pos.x; 
-				});
+				// check if there's ambiguity
+				bool flagAmbiguity = TRUE;
+				for (int i = 0; i < 4; i++) {
+					if (intersections[i] == 0) {
+						flagAmbiguity = FALSE;	// if four edges all have a intersection, there's ambiguity
+						break;
+					}
+				}
+				if (flagAmbiguity == TRUE) {
+					localVertices = solveAmbiguity(isoValue, topLeft, bottomLeft, bottomRight, topRight, intersections, localVertices);
+				}
+
+				//std::sort(localVertices.begin(), localVertices.end(), 
+				//    [](const BasicMesh::Vertex & a, const BasicMesh::Vertex & b) -> bool
+				//{ 
+				//    return a.pos.x < b.pos.x; 
+				//});
 				
 				//LogProcessorInfo("IV: " << isoValue << " BL: " << bottomLeft << " BR: " << bottomRight << " TL: " << topLeft << " TR: " << topRight);
 				//LogProcessorInfo("Number of local vertices: " << localVertices.size());
@@ -267,8 +286,8 @@ void MarchingSquares::process()
         // is the color for the minimum value in the data
         // vec4 color = propIsoTransferFunc.get().sample(1.0f);
         // is the color for the maximum value in the data
-		auto transformX = [dims, padding](auto x) { return padding + static_cast<float>(x) / (dims.x - 1)*(1.0 - 2 * padding); };
-		auto transformY = [dims, padding](auto y) { return padding + static_cast<float>(y) / (dims.y - 1)*(1.0 - 2 * padding); };
+		//auto transformX = [dims, padding](auto x) { return padding + static_cast<float>(x) / (dims.x - 1)*(1.0 - 2 * padding); };
+		//auto transformY = [dims, padding](auto y) { return padding + static_cast<float>(y) / (dims.y - 1)*(1.0 - 2 * padding); };
 
 		auto isoValue = propIsoValue.get();
 		auto isoStepSize = (maxValue - minValue )/ (propNumContours.get()+1);
@@ -306,11 +325,11 @@ void MarchingSquares::process()
 					localVertices.push_back({ vec3(transformX(c + intersection), transformY(r + 1), 0), vec3(0), vec3(0.2f, 0.5f, 0), color1 });
 				}
 
-				std::sort(localVertices.begin(), localVertices.end(),
-					[](const BasicMesh::Vertex & a, const BasicMesh::Vertex & b) -> bool
-				{
-					return a.pos.x < b.pos.x;
-				});
+				//std::sort(localVertices.begin(), localVertices.end(),
+				//	[](const BasicMesh::Vertex & a, const BasicMesh::Vertex & b) -> bool
+				//{
+				//	return a.pos.x < b.pos.x;
+				//});
 
 				//LogProcessorInfo("IV: " << isoValue << " BL: " << bottomLeft << " BR: " << bottomRight << " TL: " << topLeft << " TR: " << topRight);
 				//LogProcessorInfo("Number of local vertices: " << localVertices.size());
@@ -345,6 +364,24 @@ float MarchingSquares::getIsoIntersection(float v1, float v2, float iso) {
 		}
 	}
 	return -1.0f;
+}
+
+std::vector<BasicMesh::Vertex> MarchingSquares::solveAmbiguity(float iso, float tl, float bl, float br, float tr, float * v, std::vector<BasicMesh::Vertex> gridIso) {
+	// v corresponds to intersection values on left, bottom, right and top edge in sequence
+	float deciderValue = 0.;
+	auto decider = propDeciderType.get();
+	if (decider == 0) {			// midpoint decider
+		deciderValue = (tl + bl + br + tr) / 4;
+	}
+	//else {						// asymptotic decider
+		//LogProcessorInfo("solve ambiguity: asymptotic");
+	//}
+	if ((tl - iso)*(deciderValue - iso) < 0) {		// if decider is marked as different symbol as topLeft, isoline would be anti-diagonal direction
+		BasicMesh::Vertex & temp = gridIso[1];
+		gridIso[1] = gridIso[3];
+		gridIso[3] = temp;
+	}
+	return gridIso;
 }
 
 } // namespace
