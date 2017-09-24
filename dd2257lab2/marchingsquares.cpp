@@ -218,30 +218,55 @@ namespace inviwo
 
 					std::vector<BasicMesh::Vertex> localVertices;
 					float intersection = getIsoIntersection(bottomLeft, bottomRight, isoValue);
+					float intersections[4] = { 0. };
 					if (intersection >= 0) {
 						localVertices.push_back({ vec3(transformX(c + intersection), transformY(r), 0), vec3(0), vec3(0.2f, 0.5f, 0), propIsoColor.get() });
+						intersections[0] = intersection;
 					}
 
 					intersection = getIsoIntersection(bottomLeft, topLeft, isoValue);
 					if (intersection >= 0) {
 						localVertices.push_back({ vec3(transformX(c), transformY(r + intersection), 0), vec3(0), vec3(0.2f, 0.5f, 0), propIsoColor.get() });
+						intersections[1] = intersection;
 					}
 
 					intersection = getIsoIntersection(bottomRight, topRight, isoValue);
 					if (intersection >= 0) {
 						localVertices.push_back({ vec3(transformX(c + 1), transformY(r + intersection), 0), vec3(0), vec3(0.2f, 0.5f, 0), propIsoColor.get() });
+						intersections[2] = intersection;
 					}
 
 					intersection = getIsoIntersection(topLeft, topRight, isoValue);
 					if (intersection >= 0) {
 						localVertices.push_back({ vec3(transformX(c + intersection), transformY(r + 1), 0), vec3(0), vec3(0.2f, 0.5f, 0), propIsoColor.get() });
+						intersections[3] = intersection;
 					}
 
-					std::sort(localVertices.begin(), localVertices.end(),
-						[](const BasicMesh::Vertex & a, const BasicMesh::Vertex & b) -> bool
-					{
-						return a.pos.x < b.pos.x;
-					});
+					//check if there's ambiguity
+					bool flagAmbiguity = TRUE;
+					for (int i = 0; i < 4; i++) {
+						if (intersections[i] == 0) {
+							flagAmbiguity = FALSE;
+						}
+					}
+					if (flagAmbiguity == TRUE) {
+						float deciderValue = 0.;
+						if (propDeciderType.get() == 0) {
+							//midpoint decider
+							deciderValue = (bottomLeft + bottomRight + topRight + topLeft) / 4;
+							if (((topLeft - isoValue) > 0 && (deciderValue - isoValue) <= 0) || ((topLeft - isoValue) <= 0 && (deciderValue - isoValue) > 0)) {
+								std::swap(localVertices[1], localVertices[2]);
+							}
+						}
+						else {
+							//asymptotic decider
+							std::sort(localVertices.begin(), localVertices.end(),
+								[](const BasicMesh::Vertex & a, const BasicMesh::Vertex & b) -> bool
+							{
+								return a.pos.x < b.pos.x;
+							});
+						}
+					}
 
 					//LogProcessorInfo("IV: " << isoValue << " BL: " << bottomLeft << " BR: " << bottomRight << " TL: " << topLeft << " TR: " << topRight);
 					//LogProcessorInfo("Number of local vertices: " << localVertices.size());
@@ -289,6 +314,7 @@ namespace inviwo
 
 						std::vector<BasicMesh::Vertex> localVertices;
 						float intersection = getIsoIntersection(bottomLeft, bottomRight, isoValue);
+						float intersections[4] = { 0. };
 						if (intersection >= 0) {
 							localVertices.push_back({ vec3(transformX(c + intersection), transformY(r), 0), vec3(0), vec3(0.2f, 0.5f, 0), color1 });
 						}
@@ -308,11 +334,31 @@ namespace inviwo
 							localVertices.push_back({ vec3(transformX(c + intersection), transformY(r + 1), 0), vec3(0), vec3(0.2f, 0.5f, 0), color1 });
 						}
 
-						std::sort(localVertices.begin(), localVertices.end(),
-							[](const BasicMesh::Vertex & a, const BasicMesh::Vertex & b) -> bool
-						{
-							return a.pos.x < b.pos.x;
-						});
+						//check if there's ambiguity
+						bool flagAmbiguity = TRUE;
+						for (int i = 0; i < 4; i++) {
+							if (intersections[i] == 0) {
+								flagAmbiguity = FALSE;
+							}
+						}
+						if (flagAmbiguity == TRUE) {
+							float deciderValue = 0.;
+							if (propDeciderType.get() == 0) {
+								//midpoint decider
+								deciderValue = (bottomLeft + bottomRight + topRight + topLeft) / 4;
+								if (((topLeft - isoValue) > 0 && (deciderValue - isoValue) <= 0) || ((topLeft - isoValue) <= 0 && (deciderValue - isoValue) > 0)) {
+									std::swap(localVertices[1], localVertices[2]);
+								}
+							}
+							else {
+								//asymptotic decider
+								std::sort(localVertices.begin(), localVertices.end(),
+									[](const BasicMesh::Vertex & a, const BasicMesh::Vertex & b) -> bool
+								{
+									return a.pos.x < b.pos.x;
+								});
+							}
+						}
 
 						//LogProcessorInfo("IV: " << isoValue << " BL: " << bottomLeft << " BR: " << bottomRight << " TL: " << topLeft << " TR: " << topRight);
 						//LogProcessorInfo("Number of local vertices: " << localVertices.size());
