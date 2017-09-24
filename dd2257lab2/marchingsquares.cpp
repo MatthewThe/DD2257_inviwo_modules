@@ -159,7 +159,9 @@ void MarchingSquares::process()
     // Initialize mesh and vertices
 	auto mesh = std::make_shared<BasicMesh>();
 	std::vector<BasicMesh::Vertex> vertices;
-
+	std::vector<BasicMesh::Vertex> gridVertices;
+	auto indexBufferGrids = 
+		mesh->addIndexBuffer(DrawType::Lines, ConnectivityType::None);
     auto indexBufferLines =
         mesh->addIndexBuffer(DrawType::Lines, ConnectivityType::None);
 	
@@ -169,15 +171,29 @@ void MarchingSquares::process()
     // x is in [0, dims.x-1] and y is in [0, dims.y-1]
     float valueat00 = getInputValue(vr, dims, 0, 0);
     LogProcessorInfo("Value at (0,0) is: " << valueat00);
-	LogProcessorInfo("Value at (" << dims.x-1 << "," << dims.y-1 << ") is: " << getInputValue(vr, dims, dims.x-1, dims.y-1));
+	// LogProcessorInfo("Value at (" << dims.x-1 << "," << dims.y-1 << ") is: " << getInputValue(vr, dims, dims.x-1, dims.y-1));
     // You can assume that dims.z = 1 and do not need to consider others cases
 
     // Grid
 	
 	float padding = 0.05f;
+	// transform vertices position w.r.t. bounding box
+	auto transformX = [dims, padding](auto x) { return padding + static_cast<float>(x) / (dims.x - 1)*(1.0 - 2 * padding); };
+	auto transformY = [dims, padding](auto y) { return padding + static_cast<float>(y) / (dims.y - 1)*(1.0 - 2 * padding); };
+
     if (propShowGrid.get())
     {
         // TODO: Add grid lines of the given color
+		for (int i = 0, j = 0; i < dims.x, j < dims.y; i++, j++) {
+			gridVertices.push_back({ vec3(transformX(i),transformY(0),0), vec3(0), vec3(0), propGridColor.get() });
+			gridVertices.push_back({ vec3(transformX(i),transformY(dims.y),0), vec3(0), vec3(0), propGridColor.get() });
+			gridVertices.push_back({ vec3(transformX(0),transformY(j),0), vec3(0),vec3(0),propGridColor.get() });
+			gridVertices.push_back({ vec3(transformX(dims.x),transformY(j),0), vec3(0), vec3(0), propGridColor.get() });
+		}
+		for (auto vertex : gridVertices) {
+			vertices.push_back(vertex);
+			indexBufferGrids->add(static_cast<std::uint32_t>(vertices.size() - 1));
+		}
     }
 
     // Iso contours
@@ -187,8 +203,8 @@ void MarchingSquares::process()
         // TODO: Draw a single isoline at the specified isovalue (propIsoValue) 
         // and color it with the specified color (propIsoColor)
 		
-		auto transformX = [dims, padding](auto x) { return padding + static_cast<float>(x)/(dims.x-1)*(1.0 - 2*padding); };
-		auto transformY = [dims, padding](auto y) { return padding + static_cast<float>(y)/(dims.y-1)*(1.0 - 2*padding); };
+		//auto transformX = [dims, padding](auto x) { return padding + static_cast<float>(x)/(dims.x-1)*(1.0 - 2*padding); };
+		//auto transformY = [dims, padding](auto y) { return padding + static_cast<float>(y)/(dims.y-1)*(1.0 - 2*padding); };
 		
 		auto isoValue = propIsoValue.get();
 		for (auto c = 0ul; c < dims.x - 1; ++c) {
