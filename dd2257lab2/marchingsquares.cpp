@@ -243,29 +243,20 @@ namespace inviwo
 					}
 
 					//check if there's ambiguity
-					bool flagAmbiguity = TRUE;
-					for (int i = 0; i < 4; i++) {
-						if (intersections[i] == 0) {
-							flagAmbiguity = FALSE;
+					bool flagAmbiguity = localVertices.size() == 4;
+					if (flagAmbiguity && propDeciderType.get() == 0) {
+						//midpoint decider
+						float deciderValue = (bottomLeft + bottomRight + topRight + topLeft) / 4;
+						if ((topLeft - isoValue)*(deciderValue - isoValue) <= 0) {
+							std::swap(localVertices[1], localVertices[2]);
 						}
-					}
-					if (flagAmbiguity == TRUE) {
-						float deciderValue = 0.;
-						if (propDeciderType.get() == 0) {
-							//midpoint decider
-							deciderValue = (bottomLeft + bottomRight + topRight + topLeft) / 4;
-							if (((topLeft - isoValue) > 0 && (deciderValue - isoValue) <= 0) || ((topLeft - isoValue) <= 0 && (deciderValue - isoValue) > 0)) {
-								std::swap(localVertices[1], localVertices[2]);
-							}
-						}
-						else {
-							//asymptotic decider
-							std::sort(localVertices.begin(), localVertices.end(),
-								[](const BasicMesh::Vertex & a, const BasicMesh::Vertex & b) -> bool
-							{
-								return a.pos.x < b.pos.x;
-							});
-						}
+					} else {
+						//asymptotic decider
+						std::sort(localVertices.begin(), localVertices.end(),
+							[](const BasicMesh::Vertex & a, const BasicMesh::Vertex & b) -> bool
+						{
+							return a.pos.x < b.pos.x;
+						});
 					}
 
 					//LogProcessorInfo("IV: " << isoValue << " BL: " << bottomLeft << " BR: " << bottomRight << " TL: " << topLeft << " TR: " << topRight);
@@ -335,29 +326,20 @@ namespace inviwo
 						}
 
 						//check if there's ambiguity
-						bool flagAmbiguity = TRUE;
-						for (int i = 0; i < 4; i++) {
-							if (intersections[i] == 0) {
-								flagAmbiguity = FALSE;
+						bool flagAmbiguity = localVertices.size() == 4;
+						if (flagAmbiguity && propDeciderType.get() == 0) {
+							//midpoint decider
+							float deciderValue = (bottomLeft + bottomRight + topRight + topLeft) / 4;
+							if ((topLeft - isoValue)*(deciderValue - isoValue) <= 0) {
+								std::swap(localVertices[1], localVertices[2]);
 							}
-						}
-						if (flagAmbiguity == TRUE) {
-							float deciderValue = 0.;
-							if (propDeciderType.get() == 0) {
-								//midpoint decider
-								deciderValue = (bottomLeft + bottomRight + topRight + topLeft) / 4;
-								if (((topLeft - isoValue) > 0 && (deciderValue - isoValue) <= 0) || ((topLeft - isoValue) <= 0 && (deciderValue - isoValue) > 0)) {
-									std::swap(localVertices[1], localVertices[2]);
-								}
-							}
-							else {
-								//asymptotic decider
-								std::sort(localVertices.begin(), localVertices.end(),
-									[](const BasicMesh::Vertex & a, const BasicMesh::Vertex & b) -> bool
-								{
-									return a.pos.x < b.pos.x;
-								});
-							}
+						} else {
+							//asymptotic decider
+							std::sort(localVertices.begin(), localVertices.end(),
+								[](const BasicMesh::Vertex & a, const BasicMesh::Vertex & b) -> bool
+							{
+								return a.pos.x < b.pos.x;
+							});
 						}
 
 						//LogProcessorInfo("IV: " << isoValue << " BL: " << bottomLeft << " BR: " << bottomRight << " TL: " << topLeft << " TR: " << topRight);
