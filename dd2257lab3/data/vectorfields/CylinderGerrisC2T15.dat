@@ -1,0 +1,14 @@
+RawFile: CylinderGerrisC2T15.raw
+Resolution: 400 50 1
+Format: Vec2FLOAT32
+BasisVector1: 8 0 0
+BasisVector2: 0 1 0
+BasisVector3: 0 0 0.00799942
+Offset: -0.5 -0.5 10
+WorldVector1: 1 0 0 0
+WorldVector2: 0 1 0 0
+WorldVector3: 0 0 1 0
+WorldVector4: 0 0 0 1
+DataRange: -1.07807 0.672337
+ValueRange: -1.07807 0.672337
+Unit: arb. unit.

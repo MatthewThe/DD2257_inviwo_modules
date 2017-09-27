@@ -1,0 +1,14 @@
+RawFile: Sink.raw
+Resolution: 2 2 1
+Format: Vec2FLOAT32
+BasisVector1: 2 0 0
+BasisVector2: 0 2 0
+BasisVector3: 0 0 2
+Offset: -1 -1 -1
+WorldVector1: 1 0 0 0
+WorldVector2: 0 1 0 0
+WorldVector3: 0 0 1 0
+WorldVector4: 0 0 0 1
+DataRange: -1 1
+ValueRange: -1 1
+Unit: arb. unit.

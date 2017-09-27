@@ -1,0 +1,14 @@
+RawFile: boussinesq2CT522.raw
+Resolution: 100 300 1
+Format: Vec2FLOAT32
+BasisVector1: 1 0 0
+BasisVector2: 0 3 0
+BasisVector3: 0 0 0.0124998
+Offset: -0.5 -0.5 6.525
+WorldVector1: 1 0 0 0
+WorldVector2: 0 1 0 0
+WorldVector3: 0 0 1 0
+WorldVector4: 0 0 0 1
+DataRange: -0.772555 0.741736
+ValueRange: -0.772555 0.741736
+Unit: arb. unit.
