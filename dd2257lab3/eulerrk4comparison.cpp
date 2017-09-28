@@ -34,12 +34,13 @@ const ProcessorInfo EulerRK4Comparison::getProcessorInfo() const
 EulerRK4Comparison::EulerRK4Comparison()
 	:Processor()
 	, outMesh("meshOut")
-    , inData("inData")
-    , propStartPoint("startPoint", "Start Point", vec2(0.5,0.5), vec2(0), vec2(1024), vec2(0.5))
-    // TODO: Initialize additional properties
-    // propertyName("propertyIdentifier", "Display Name of the Propery", 
-    // default value (optional), minimum value (optional), maximum value (optional), increment (optional));
-    // propertyIdentifier cannot have spaces
+	, inData("inData")
+	, propStartPoint("startPoint", "Start Point", vec2(0.5, 0.5), vec2(0), vec2(1024), vec2(0.5))
+	// TODO: Initialize additional properties
+	// default value (optional), minimum value (optional), maximum value (optional), increment (optional));
+	// propertyIdentifier cannot have spaces
+	, propSteps("steps", "Steps",  50, 0, 10000)
+	, propStepsize("stepsize", "Stepsize", 0.2f, 0.0f)
     , mouseMoveStart("mouseMoveStart", "Move Start", [this](Event* e) { eventMoveStart(e); },
         MouseButton::Left, MouseState::Press | MouseState::Move)
 {
@@ -52,7 +53,8 @@ EulerRK4Comparison::EulerRK4Comparison()
     addProperty(mouseMoveStart);
 
     // TODO: Register additional properties
-    // addProperty(propertyName);
+    addProperty(propSteps);
+	addProperty(propStepsize);
 
 }
 
@@ -102,8 +104,49 @@ void EulerRK4Comparison::process()
     // and then integrate forward for a specified number of integration steps and a given stepsize 
     // (these should be additional properties of the processor)
 
-    // Integrator::Euler(vr, dims, startPoint, ...);
-    // Integrator::Rk4(vr, dims, startPoint, ...);
+	//init - first value
+	vec2 buffertVec2 = startPoint;
+	uint32_t IndexBuffOffset = 0;
+	//Eulerboy
+	
+	for (IndexBuffOffset = 0;IndexBuffOffset <= propSteps.get(); IndexBuffOffset++)
+	{
+		
+		//calculation
+		buffertVec2 = Integrator::Euler(vr, dims, buffertVec2, propStepsize.get());
+		
+		
+		//drawing
+		vertices.push_back({ vec3(buffertVec2.x / (dims.x - 1), buffertVec2.y / (dims.y - 1), 0),
+			vec3(0), vec3(0), vec4(0, 0, 1, 1) });
+
+		indexBufferEuler->add(static_cast<std::uint32_t>(IndexBuffOffset));
+		indexBufferPoints->add(static_cast<std::uint32_t>(IndexBuffOffset));
+	}
+	
+	// my man Runga von kutta the fourth. 
+	//init - first value
+	
+
+	buffertVec2 = startPoint;
+	
+	for (uint32_t i = 0; i <= propSteps.get(); i++)
+	{
+
+		//calculation
+		buffertVec2 = Integrator::RK4(vr, dims, buffertVec2, propStepsize.get());
+
+
+		//drawing
+		vertices.push_back({ vec3(buffertVec2.x / (dims.x - 1), buffertVec2.y / (dims.y - 1), 0),
+			vec3(0), vec3(0), vec4(0, 1, 0, 1) });
+
+		indexBufferRK->add(static_cast<std::uint32_t>(IndexBuffOffset+1+i));
+		indexBufferPoints->add(static_cast<std::uint32_t>(IndexBuffOffset+1+i));
+
+	}
+
+    
 
 	mesh->addVertices(vertices);
 	outMesh.setData(mesh);

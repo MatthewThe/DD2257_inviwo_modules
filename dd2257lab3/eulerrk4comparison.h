@@ -80,8 +80,8 @@ public:
 	FloatVec2Property propStartPoint;
     EventProperty mouseMoveStart;
     // TODO: Declare additional properties
-    // IntProperty properyName;
-    // FloatProperty propertyName2;
+    IntProperty propSteps;
+    FloatProperty propStepsize;
 
 //Attributes
 private:

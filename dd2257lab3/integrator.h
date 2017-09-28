@@ -36,8 +36,8 @@ public:
     // TODO: Implement the methods below (one integration step with either Euler or 
     // Runge-Kutte of 4th order integration method)
     // Pass any other properties that influence the integration process
-    //static vec2 RK4(const VolumeRAM* vr, size3_t dims, const vec2& position, ...);
-    //static vec2 Euler(const VolumeRAM* vr, size3_t dims, const vec2& position, ...);
+    static vec2 RK4(const VolumeRAM* vr, size3_t dims, const vec2& position,  const float stepsize);
+    static vec2 Euler(const VolumeRAM* vr, size3_t dims, const vec2& position,  const float stepsize);
 
 };
 
