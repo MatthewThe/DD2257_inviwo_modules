@@ -42,6 +42,15 @@ StreamlineIntegrator::StreamlineIntegrator()
     // propertyName("propertyIdentifier", "Display Name of the Propery", 
     // default value (optional), minimum value (optional), maximum value (optional), increment (optional));
     // propertyIdentifier cannot have spaces
+    , propSteps("steps", "Steps",  50, 0, 10000)
+	, propStepsize("stepsize", "Stepsize", 0.2f, 0.0f)
+	, propIntegrationDirection("integrationDirection", "Integration Direction")
+	, propStreamLineColor("streamLineColor", "Stream Lines Color", vec4(0.0f, 0.0f, 0.0f, 1.0f),
+			vec4(0.0f), vec4(1.0f), vec4(0.1f),
+			InvalidationLevel::InvalidOutput, PropertySemantics::Color)
+	, directionField("directionField", "Direction Field", false)
+    , numSeeds("numSeeds", "Num Seeds",  50, 0, 10000)
+    , seedPlacement("seedPlacement", "Seed Placement Strategy")
     , mouseMoveStart("mouseMoveStart", "Move Start", [this](Event* e) { eventMoveStart(e); },
         MouseButton::Left, MouseState::Press | MouseState::Move)
 {
@@ -58,19 +67,33 @@ StreamlineIntegrator::StreamlineIntegrator()
 
     // TODO: Register additional properties
     // addProperty(propertyName);
-
+    seedPlacement.addOption("random", "Random", 0);
+    seedPlacement.addOption("uniform", "Uniform", 1);
+    seedPlacement.addOption("magnitude", "Magnitude", 2);
+    addProperty(seedPlacement);
+	addProperty(numSeeds);
+    
+    propIntegrationDirection.addOption("forward", "Forward", 1);
+    propIntegrationDirection.addOption("backward", "Backward", -1);
+    addProperty(propIntegrationDirection);
+    addProperty(propSteps);
+	addProperty(propStepsize);
+	addProperty(propStreamLineColor);
+	
+	addProperty(directionField);
+	
     // Show properties for a single seed and hide properties for multiple seeds (TODO)
     propSeedMode.onChange([this]()
     {
         if (propSeedMode.get() == 0)
         {
             util::show(propStartPoint, mouseMoveStart);
-            // util::hide(...)
+            util::hide(numSeeds, seedPlacement);
         }
         else
         {
             util::hide(propStartPoint, mouseMoveStart);
-            // util::show(...)
+            util::show(numSeeds, seedPlacement);
         }
     });
 
@@ -107,26 +130,72 @@ void StreamlineIntegrator::process()
     
 	auto mesh = std::make_shared<BasicMesh>();
 	std::vector<BasicMesh::Vertex> vertices;
-
+    
     if (propSeedMode.get() == 0)
     {
-        auto indexBufferPoints = mesh->addIndexBuffer(DrawType::Points, ConnectivityType::None);
+        //auto indexBufferPoints = mesh->addIndexBuffer(DrawType::Points, ConnectivityType::None);
+        auto indexBufferRK = mesh->addIndexBuffer(DrawType::Lines, ConnectivityType::Strip);
+        
         // Draw start point
         vec2 startPoint = propStartPoint.get();
-        vertices.push_back({ vec3(startPoint.x / (dims.x - 1), startPoint.y / (dims.y - 1), 0),
-            vec3(0), vec3(0), vec4(0, 0, 0, 1) });
-        indexBufferPoints->add(static_cast<std::uint32_t>(0));
+                
         // TODO: Create one stream line from the given start point
+        drawSingleStreamLine(startPoint, vr, dims, vertices, indexBufferRK);
     }
     else
     {
         // TODO: Seed multiple stream lines either randomly or using a uniform grid
-
-        // (TODO: Bonus, sample randomly according to magnitude of the vector field)
+        srand(1);
+        std::vector<vec2> seeds;
+        auto getRandFloat = []() { return static_cast<double>(rand()) / RAND_MAX; };
+        if (seedPlacement.get() == 0) // random seeding
+        {
+            for (int i = 0; i < numSeeds.get(); ++i)
+            {
+                seeds.push_back(vec2(getRandFloat()*(dims.x - 1), getRandFloat()*(dims.y - 1)));
+                //LogProcessorInfo("Random seed at (" << seeds.back().x << ","  << seeds.back().y << ")")
+            }
+        } 
+        else if (seedPlacement.get() == 1) // uniform seeding
+        {
+        
+        }
+        else if (seedPlacement.get() == 2) // magnitude based seeding
+        {
+            // (TODO: Bonus, sample randomly according to magnitude of the vector field)
+        }
+        
+        for (auto seed : seeds) {
+            auto indexBufferRK = mesh->addIndexBuffer(DrawType::Lines, ConnectivityType::Strip);
+            drawSingleStreamLine(seed, vr, dims, vertices, indexBufferRK);
+        }
+        
     }
 
 	mesh->addVertices(vertices);
 	outMesh.setData(mesh);
+}
+
+void StreamlineIntegrator::drawSingleStreamLine(vec2 startPoint, const VolumeRAM* vr, vec3 dims, 
+        std::vector<BasicMesh::Vertex>& vertices, IndexBufferRAM *indexBufferLine) {
+    vertices.push_back({ vec3(startPoint.x / (dims.x - 1), startPoint.y / (dims.y - 1), 0),
+            vec3(0), vec3(0), propStreamLineColor.get() });
+    //indexBufferPoints->add(static_cast<std::uint32_t>(0));        
+    indexBufferLine->add(static_cast<std::uint32_t>(vertices.size() - 1));
+    
+    vec2 buffertVec2 = startPoint;
+    for (uint32_t i = 0; i < propSteps.get(); i++)
+    {
+	    //calculation
+	    buffertVec2 = Integrator::RK4(vr, dims, buffertVec2, propIntegrationDirection.get() * propStepsize.get(), directionField.get());
+
+	    //drawing
+	    vertices.push_back({ vec3(buffertVec2.x / (dims.x - 1), buffertVec2.y / (dims.y - 1), 0),
+		    vec3(0), vec3(0), propStreamLineColor.get() });
+
+	    indexBufferLine->add(static_cast<std::uint32_t>(vertices.size() - 1));
+	    //indexBufferPoints->add(static_cast<std::uint32_t>(vertices.size() - 1));
+    }
 }
 
 } // namespace

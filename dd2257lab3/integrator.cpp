@@ -60,20 +60,39 @@ vec2 Integrator::sampleFromField(const VolumeRAM* vr, size3_t dims, const vec2& 
 // TODO: Implement a single integration step here
 //Access the vector field with sampleFromField(vr, dims, ...)
 
-vec2 Integrator::Euler(const VolumeRAM* vr, size3_t dims, const vec2& position, const float stepsize)
+vec2 Integrator::Euler(const VolumeRAM* vr, size3_t dims, const vec2& position, const float stepsize, bool normalized)
 {
-	return position + stepsize*sampleFromField(vr, dims, position);
+  vec2 direction = sampleFromField(vr, dims, position);
+  if (normalized)
+  {
+    double vectorLength = std::sqrt(direction.x * direction.x + direction.y * direction.y);
+    if (vectorLength > 0)
+    {
+      direction /= vectorLength;
+    }
+  }
+	return position + stepsize*direction;
 }
 
-vec2 Integrator::RK4(const VolumeRAM* vr, size3_t dims, const vec2& position, const float stepsize)
+vec2 Integrator::RK4(const VolumeRAM* vr, size3_t dims, const vec2& position, const float stepsize, bool normalized)
 { 
 	//RK4 helping functions
 	vec2 k1 = sampleFromField(vr, dims, position);
 	vec2 k2 = sampleFromField(vr, dims, position+ stepsize*0.5f*k1);
 	vec2 k3 = sampleFromField(vr, dims, position +stepsize*0.5f*k2);
 	vec2 k4 = sampleFromField(vr, dims, position + stepsize*k2);
-
-	return position + 0.16666666666f*stepsize*(k1 + 2.0f*k2 + 2.0f*k3 + k4);
+  
+  vec2 direction = 0.16666666666f*stepsize*(k1 + 2.0f*k2 + 2.0f*k3 + k4);
+  if (normalized)
+  {
+    double vectorLength = std::sqrt(direction.x * direction.x + direction.y * direction.y);
+    if (vectorLength > 0)
+    {
+      direction /= vectorLength;
+    }
+  }
+  
+	return position + stepsize*direction;
 }
 
 } // namespace

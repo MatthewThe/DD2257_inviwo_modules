@@ -20,6 +20,7 @@
 #include <inviwo/core/properties/eventproperty.h>
 #include <inviwo/core/properties/compositeproperty.h>
 #include <inviwo/core/properties/boolproperty.h>
+#include <inviwo/core/properties/templateproperty.h>
 #include <inviwo/core/datastructures/geometry/basicmesh.h>
 #include <inviwo/core/datastructures/volume/volumeram.h>
 
@@ -76,7 +77,8 @@ protected:
 
     // (TODO: You could define some helper functions here, 
     // e.g. a function creating a single streamline from one seed point)
-
+    void drawSingleStreamLine(vec2 startPoint, const VolumeRAM* vr, vec3 dims, 
+        std::vector<BasicMesh::Vertex>& vertices, IndexBufferRAM *indexBufferLine);
 //Ports
 public:
 	//Input Vector Field
@@ -89,6 +91,7 @@ public:
     EventProperty mouseMoveStart;
     FloatVec2Property propStartPoint;
     TemplateOptionProperty<int> propSeedMode;
+    
 
     // TODO: Declare additional properties
     // Some types that you might need are given below
@@ -97,6 +100,14 @@ public:
     // IntVec2Property propertyName3;
     // TemplateOptionProperty<int> propertyName4;
     // BoolProperty propertyName5;
+    TemplateOptionProperty<int> propIntegrationDirection;
+    IntProperty propSteps;
+    FloatProperty propStepsize;
+    FloatVec4Property propStreamLineColor;
+    BoolProperty directionField;
+    
+    IntProperty numSeeds;
+    TemplateOptionProperty<int> seedPlacement;
 
 //Attributes
 private:
