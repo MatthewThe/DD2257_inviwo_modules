@@ -80,9 +80,9 @@ vec2 Integrator::RK4(const VolumeRAM* vr, size3_t dims, const vec2& position, co
 	vec2 k1 = sampleFromField(vr, dims, position);
 	vec2 k2 = sampleFromField(vr, dims, position+ stepsize*0.5f*k1);
 	vec2 k3 = sampleFromField(vr, dims, position +stepsize*0.5f*k2);
-	vec2 k4 = sampleFromField(vr, dims, position + stepsize*k2);
+	vec2 k4 = sampleFromField(vr, dims, position + stepsize*k3);
   
-  vec2 direction = 0.16666666666f*stepsize*(k1 + 2.0f*k2 + 2.0f*k3 + k4);
+  vec2 direction = 0.166666667f*(k1 + 2.0f*k2 + 2.0f*k3 + k4);
   if (normalized)
   {
     double vectorLength = std::sqrt(direction.x * direction.x + direction.y * direction.y);

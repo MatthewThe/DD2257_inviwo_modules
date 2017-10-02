@@ -39,8 +39,10 @@ EulerRK4Comparison::EulerRK4Comparison()
 	// TODO: Initialize additional properties
 	// default value (optional), minimum value (optional), maximum value (optional), increment (optional));
 	// propertyIdentifier cannot have spaces
-	, propSteps("steps", "Steps",  50, 0, 10000)
-	, propStepsize("stepsize", "Stepsize", 0.2f, 0.0f)
+	, propStepsE("stepse", "Steps for Euler",  50, 0, 10000)
+	, propStepsizeE("stepsizee", "Stepsize for Euler", 0.2f, 0.0f)
+	, propStepsRK("steprks", "Steps for RK4", 50, 0, 10000)
+	, propStepsizeRK("stepsizerk", "Stepsize for RK4", 0.2f, 0.0f)
     , mouseMoveStart("mouseMoveStart", "Move Start", [this](Event* e) { eventMoveStart(e); },
         MouseButton::Left, MouseState::Press | MouseState::Move)
 {
@@ -53,9 +55,10 @@ EulerRK4Comparison::EulerRK4Comparison()
     addProperty(mouseMoveStart);
 
     // TODO: Register additional properties
-    addProperty(propSteps);
-	addProperty(propStepsize);
-
+    addProperty(propStepsE);
+	addProperty(propStepsizeE);
+	addProperty(propStepsRK);
+	addProperty(propStepsizeRK);
 }
 
 void EulerRK4Comparison::eventMoveStart(Event* event)
@@ -109,11 +112,11 @@ void EulerRK4Comparison::process()
 	uint32_t IndexBuffOffset = 0;
 	//Eulerboy
 	
-	for (IndexBuffOffset = 0;IndexBuffOffset <= propSteps.get(); IndexBuffOffset++)
+	for (IndexBuffOffset = 0;IndexBuffOffset <= propStepsE.get(); IndexBuffOffset++)
 	{
 		
 		//calculation
-		buffertVec2 = Integrator::Euler(vr, dims, buffertVec2, propStepsize.get());
+		buffertVec2 = Integrator::Euler(vr, dims, buffertVec2, propStepsizeE.get());
 		
 		
 		//drawing
@@ -130,11 +133,11 @@ void EulerRK4Comparison::process()
 
 	buffertVec2 = startPoint;
 	
-	for (uint32_t i = 0; i <= propSteps.get(); i++)
+	for (uint32_t i = 0; i <= propStepsRK.get(); i++)
 	{
 
 		//calculation
-		buffertVec2 = Integrator::RK4(vr, dims, buffertVec2, propStepsize.get());
+		buffertVec2 = Integrator::RK4(vr, dims, buffertVec2, propStepsizeRK.get());
 
 
 		//drawing
