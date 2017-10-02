@@ -163,6 +163,81 @@ void StreamlineIntegrator::process()
         else if (seedPlacement.get() == 2) // magnitude based seeding
         {
             // (TODO: Bonus, sample randomly according to magnitude of the vector field)
+			// makegrid, calc values for each cell save to vector
+			// normalize,  sum of all cell values save 
+			// prob is rand * sum, while greater then v(i) + commulativa; next one? 
+			int numofcellsX = 20;
+			int numofcellsY = 20;
+			std::vector<float> cellValues;
+			std::vector<float> cellseeds;
+			float xCellLenght = static_cast<float>(dims.x) / numofcellsX;
+			float YCellLenght = static_cast<float>(dims.y) / numofcellsY;
+
+			
+			//LogProcessorInfo(xCellLenght);
+
+			//making cells and getting mean lenght values
+			float buffer1 = 0;
+			float buffer2 = 0;
+			float buffer3 = 0;
+			float buffer4 = 0;
+			float sum = 0;
+			float buffertMean = 0;
+
+			for (int i = 0; i < numofcellsX; i++) {
+				for (int j = 0; j < numofcellsY; j++) {
+
+					buffer1 = glm::length(Integrator::sampleFromField(vr, dims, vec2(i*xCellLenght, j*YCellLenght)));
+					buffer2 = glm::length(Integrator::sampleFromField(vr, dims, vec2((i + 1)*xCellLenght, j*YCellLenght)));
+					buffer3 = glm::length(Integrator::sampleFromField(vr, dims, vec2(i*xCellLenght, (j + 1)*YCellLenght)));
+					buffer4 = glm::length(Integrator::sampleFromField(vr, dims, vec2((i + 1) *xCellLenght, (j + 1)*YCellLenght)));
+
+					buffertMean = (buffer1 + buffer2 + buffer3 + buffer4) / 4;
+					cellValues.push_back(buffertMean);
+					sum = sum + buffertMean;
+					//LogProcessorInfo(sum);
+					cellseeds.push_back(0);
+
+
+				}
+			}
+			// assign seeds randomly with weights to cells
+			float randSeed = 0;
+			float cumulative = 0;
+			for (int i = 0; i < numSeeds.get(); ++i) {
+				
+				cumulative = 0;
+				randSeed = getRandFloat()*sum;
+
+				for (int c = 0; c < numofcellsX*numofcellsY; c++) {
+					if (randSeed <= (cellValues[c]+ cumulative)) {
+						cellseeds[c] += 1;
+						LogProcessorInfo(c);
+						break;
+					}
+					else {
+						cumulative += cellValues[c];
+					}
+
+
+				}
+
+			}
+			//set seeds depending on cell 
+			float bufferX = 0;
+			float bufferY = 0;
+
+			for (int c = 0; c < numofcellsX*numofcellsY; c++) {
+				bufferY = c % numofcellsX;
+				bufferX = (c- bufferY) / numofcellsX;
+				LogProcessorInfo(bufferX <<" "<< bufferY);
+				for (int s = 0; s < cellseeds[c];s++){
+					//LogProcessorInfo(vec2((bufferX*xCellLenght) + getRandFloat()*xCellLenght, (bufferY*YCellLenght) + getRandFloat()*YCellLenght));
+					seeds.push_back(vec2((bufferX*xCellLenght) +getRandFloat()*xCellLenght, (bufferY*YCellLenght) + getRandFloat()*YCellLenght));
+				}
+			}
+
+
         }
         
         for (auto seed : seeds) {
