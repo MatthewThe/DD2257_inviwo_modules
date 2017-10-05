@@ -50,11 +50,13 @@ StreamlineIntegrator::StreamlineIntegrator()
 	, propVelocityThreshold("velocityThreshold", "Velocity Threshold", 0, 0, 100)
 
 	, propStreamLineColor("streamLineColor", "Stream Lines Color", vec4(0.0f, 0.0f, 0.0f, 1.0f),
-			vec4(0.0f), vec4(1.0f), vec4(0.1f),
-			InvalidationLevel::InvalidOutput, PropertySemantics::Color)
+		vec4(0.0f), vec4(1.0f), vec4(0.1f),
+		InvalidationLevel::InvalidOutput, PropertySemantics::Color)
 	, directionField("directionField", "Direction Field", false)
-    , numSeeds("numSeeds", "Num Seeds",  50, 0, 10000)
-    , seedPlacement("seedPlacement", "Seed Placement Strategy")
+	, numSeeds("numSeeds", "Num Seeds", 50, 0, 10000)
+	, seedPlacement("seedPlacement", "Seed Placement Strategy")
+	, propGridRangeX("gridRangeX", "Grid Range X", 10, 0, 100)
+	, propGridRangeY("gridRangeY", "Grid Range Y", 10, 0, 100)
     , mouseMoveStart("mouseMoveStart", "Move Start", [this](Event* e) { eventMoveStart(e); },
         MouseButton::Left, MouseState::Press | MouseState::Move)
 {
@@ -76,6 +78,8 @@ StreamlineIntegrator::StreamlineIntegrator()
     seedPlacement.addOption("magnitude", "Magnitude", 2);
     addProperty(seedPlacement);
 	addProperty(numSeeds);
+	addProperty(propGridRangeX);
+	addProperty(propGridRangeY);
     
     propIntegrationDirection.addOption("forward", "Forward", 1);
     propIntegrationDirection.addOption("backward", "Backward", -1);
@@ -136,7 +140,11 @@ void StreamlineIntegrator::process()
     
 	auto mesh = std::make_shared<BasicMesh>();
 	std::vector<BasicMesh::Vertex> vertices;
+	std::vector<BasicMesh::Vertex> gridVertices;
+	auto indexBufferGrids =
+		mesh->addIndexBuffer(DrawType::Lines, ConnectivityType::None);
     
+	//single seed
     if (propSeedMode.get() == 0)
     {
         //auto indexBufferPoints = mesh->addIndexBuffer(DrawType::Points, ConnectivityType::None);
@@ -148,6 +156,7 @@ void StreamlineIntegrator::process()
         // TODO: Create one stream line from the given start point
 		drawSingleStreamLine(startPoint, vr, dims, vertices, indexBufferRK);
     }
+	//multiple seeds
     else
     {
         // TODO: Seed multiple stream lines either randomly or using a uniform grid
@@ -164,7 +173,15 @@ void StreamlineIntegrator::process()
         } 
         else if (seedPlacement.get() == 1) // uniform seeding
         {
-        
+			//LogProcessorInfo("dims.x "<<dims.x << " | propX "<<propGridRangeX.get() <<" | stepSizeX "<<stepSizeX);
+			float c = 0.;
+			float r = 0.;
+			for (int cCount=0; cCount < propGridRangeX.get(); cCount++) {
+				for (int rCount=0; rCount < propGridRangeY.get(); rCount++) {
+					seeds.push_back(vec2(cCount*(float(dims.x - 1)) / propGridRangeX.get(), rCount*(float(dims.y - 1)) / propGridRangeY.get()));
+					//LogProcessorInfo("c " << cCount*(float(dims.x - 1)) / propGridRangeX.get() << " | r " << rCount*(float(dims.y - 1)) / propGridRangeY.get());
+				}
+			}
         }
         else if (seedPlacement.get() == 2) // magnitude based seeding
         {
@@ -271,6 +288,7 @@ void StreamlineIntegrator::drawSingleStreamLine(vec2 startPoint, const VolumeRAM
 		buffertVec2 = Integrator::RK4(vr, dims, buffertVec2, propIntegrationDirection.get() * propStepsize.get(), directionField.get());
 		//stop integration after input arc length
 		if (0) {
+			//inputArcLength = propArcLength.get();
 			break;
 		}
 		//stop integration at the boundary of domain 

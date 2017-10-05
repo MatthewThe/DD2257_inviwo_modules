@@ -111,6 +111,9 @@ public:
     IntProperty numSeeds;
     TemplateOptionProperty<int> seedPlacement;
 
+	IntProperty propGridRangeX;
+	IntProperty propGridRangeY;
+
 //Attributes
 private:
     // Dimensions of the current vector field
