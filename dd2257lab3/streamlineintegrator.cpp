@@ -36,15 +36,19 @@ StreamlineIntegrator::StreamlineIntegrator()
 	:Processor()
 	, inData("volIn")
 	, outMesh("meshOut")
-    , propStartPoint("startPoint", "Start Point", vec2(0.5, 0.5), vec2(0), vec2(1024), vec2(0.5))
-    , propSeedMode("seedMode", "Seeds")
-    // TODO: Initialize additional properties
-    // propertyName("propertyIdentifier", "Display Name of the Propery", 
-    // default value (optional), minimum value (optional), maximum value (optional), increment (optional));
-    // propertyIdentifier cannot have spaces
-    , propSteps("steps", "Steps",  50, 0, 10000)
+	, propStartPoint("startPoint", "Start Point", vec2(0.5, 0.5), vec2(0), vec2(1024), vec2(0.5))
+	, propSeedMode("seedMode", "Seeds")
+	// TODO: Initialize additional properties
+	// propertyName("propertyIdentifier", "Display Name of the Propery", 
+	// default value (optional), minimum value (optional), maximum value (optional), increment (optional));
+	// propertyIdentifier cannot have spaces
+	, propSteps("steps", "Steps", 50, 0, 10000)
 	, propStepsize("stepsize", "Stepsize", 0.2f, 0.0f)
 	, propIntegrationDirection("integrationDirection", "Integration Direction")
+
+	, propArcLength("arcLength", "Arc Length", 0, 0, 100)
+	, propVelocityThreshold("velocityThreshold", "Velocity Threshold", 0, 0, 100)
+
 	, propStreamLineColor("streamLineColor", "Stream Lines Color", vec4(0.0f, 0.0f, 0.0f, 1.0f),
 			vec4(0.0f), vec4(1.0f), vec4(0.1f),
 			InvalidationLevel::InvalidOutput, PropertySemantics::Color)
@@ -81,6 +85,8 @@ StreamlineIntegrator::StreamlineIntegrator()
 	addProperty(propStreamLineColor);
 	
 	addProperty(directionField);
+	addProperty(propArcLength);
+	addProperty(propVelocityThreshold);
 	
     // Show properties for a single seed and hide properties for multiple seeds (TODO)
     propSeedMode.onChange([this]()
@@ -140,7 +146,7 @@ void StreamlineIntegrator::process()
         vec2 startPoint = propStartPoint.get();
                 
         // TODO: Create one stream line from the given start point
-        drawSingleStreamLine(startPoint, vr, dims, vertices, indexBufferRK);
+		drawSingleStreamLine(startPoint, vr, dims, vertices, indexBufferRK);
     }
     else
     {
@@ -259,18 +265,33 @@ void StreamlineIntegrator::drawSingleStreamLine(vec2 startPoint, const VolumeRAM
     indexBufferLine->add(static_cast<std::uint32_t>(vertices.size() - 1));
     
     vec2 buffertVec2 = startPoint;
-    for (uint32_t i = 0; i < propSteps.get(); i++)
-    {
-	    //calculation
-	    buffertVec2 = Integrator::RK4(vr, dims, buffertVec2, propIntegrationDirection.get() * propStepsize.get(), directionField.get());
-
-	    //drawing
-	    vertices.push_back({ vec3(buffertVec2.x / (dims.x - 1), buffertVec2.y / (dims.y - 1), 0),
-		    vec3(0), vec3(0), propStreamLineColor.get() });
-
-	    indexBufferLine->add(static_cast<std::uint32_t>(vertices.size() - 1));
-	    //indexBufferPoints->add(static_cast<std::uint32_t>(vertices.size() - 1));
-    }
+	//stop integration after input amount of steps
+	for (uint32_t i = 0; i < propSteps.get(); i++)
+	{
+		buffertVec2 = Integrator::RK4(vr, dims, buffertVec2, propIntegrationDirection.get() * propStepsize.get(), directionField.get());
+		//stop integration after input arc length
+		if (0) {
+			break;
+		}
+		//stop integration at the boundary of domain 
+		else if ((buffertVec2.x >= (dims.x - 1)) || (buffertVec2.y >= (dims.y - 1))) {
+			break;
+		}
+		//stop integration at zeros of the vector field
+		else if (Integrator::sampleFromField(vr, dims, buffertVec2) == vec2(0, 0)) {
+			break;
+		}
+		//stop integration when the velocity becomes too slow
+		else if (glm::length(Integrator::sampleFromField(vr, dims, buffertVec2)) <= propVelocityThreshold.get()) {
+			break;
+		}
+		else {
+			vertices.push_back({ vec3(buffertVec2.x / (dims.x - 1), buffertVec2.y / (dims.y - 1), 0),
+				vec3(0), vec3(0), propStreamLineColor.get() });
+			indexBufferLine->add(static_cast<std::uint32_t>(vertices.size() - 1));
+			//indexBufferPoints->add(static_cast<std::uint32_t>(vertices.size() - 1));
+		}
+	}
 }
 
 } // namespace

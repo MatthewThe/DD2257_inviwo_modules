@@ -105,6 +105,8 @@ public:
     FloatProperty propStepsize;
     FloatVec4Property propStreamLineColor;
     BoolProperty directionField;
+	FloatProperty propArcLength;
+	FloatProperty propVelocityThreshold;
     
     IntProperty numSeeds;
     TemplateOptionProperty<int> seedPlacement;
