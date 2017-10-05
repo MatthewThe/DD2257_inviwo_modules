@@ -112,7 +112,7 @@ void EulerRK4Comparison::process()
 	uint32_t IndexBuffOffset = 0;
 	//Eulerboy
 	
-	for (IndexBuffOffset = 0;IndexBuffOffset <= propStepsE.get(); IndexBuffOffset++)
+	for (IndexBuffOffset = 0;IndexBuffOffset < propStepsE.get(); IndexBuffOffset++)
 	{
 		
 		//calculation
@@ -133,7 +133,7 @@ void EulerRK4Comparison::process()
 
 	buffertVec2 = startPoint;
 	
-	for (uint32_t i = 0; i <= propStepsRK.get(); i++)
+	for (uint32_t i = 0; i < propStepsRK.get(); i++)
 	{
 
 		//calculation

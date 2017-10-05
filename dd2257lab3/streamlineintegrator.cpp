@@ -46,8 +46,8 @@ StreamlineIntegrator::StreamlineIntegrator()
 	, propStepsize("stepsize", "Stepsize", 0.2f, 0.0f)
 	, propIntegrationDirection("integrationDirection", "Integration Direction")
 
-	, propArcLength("arcLength", "Arc Length", 0, 0, 100)
-	, propVelocityThreshold("velocityThreshold", "Velocity Threshold", 0, 0, 100)
+	, propArcLength("arcLength", "Arc Length", 20, 0, 100)
+	, propVelocityThreshold("velocityThreshold", "Velocity Threshold", 0, 0, 1)
 
 	, propStreamLineColor("streamLineColor", "Stream Lines Color", vec4(0.0f, 0.0f, 0.0f, 1.0f),
 		vec4(0.0f), vec4(1.0f), vec4(0.1f),
@@ -98,12 +98,12 @@ StreamlineIntegrator::StreamlineIntegrator()
         if (propSeedMode.get() == 0)
         {
             util::show(propStartPoint, mouseMoveStart);
-            util::hide(numSeeds, seedPlacement);
+            util::hide(numSeeds, seedPlacement, propGridRangeX, propGridRangeY);
         }
         else
         {
             util::hide(propStartPoint, mouseMoveStart);
-            util::show(numSeeds, seedPlacement);
+            util::show(numSeeds, seedPlacement, propGridRangeX, propGridRangeY);
         }
     });
 
@@ -178,7 +178,7 @@ void StreamlineIntegrator::process()
 			float r = 0.;
 			for (int cCount=0; cCount < propGridRangeX.get(); cCount++) {
 				for (int rCount=0; rCount < propGridRangeY.get(); rCount++) {
-					seeds.push_back(vec2(cCount*(float(dims.x - 1)) / propGridRangeX.get(), rCount*(float(dims.y - 1)) / propGridRangeY.get()));
+					seeds.push_back(vec2(cCount*(float(dims.x - 1)) / (propGridRangeX.get() - 1), rCount*(float(dims.y - 1)) / (propGridRangeY.get() - 1)));
 					//LogProcessorInfo("c " << cCount*(float(dims.x - 1)) / propGridRangeX.get() << " | r " << rCount*(float(dims.y - 1)) / propGridRangeY.get());
 				}
 			}
@@ -196,7 +196,6 @@ void StreamlineIntegrator::process()
 			float xCellLenght = static_cast<float>(dims.x) / numofcellsX;
 			float YCellLenght = static_cast<float>(dims.y) / numofcellsY;
 
-			
 			//LogProcessorInfo(xCellLenght);
 
 			//making cells and getting mean lenght values
@@ -209,7 +208,6 @@ void StreamlineIntegrator::process()
 
 			for (int i = 0; i < numofcellsX; i++) {
 				for (int j = 0; j < numofcellsY; j++) {
-
 					buffer1 = glm::length(Integrator::sampleFromField(vr, dims, vec2(i*xCellLenght, j*YCellLenght)));
 					buffer2 = glm::length(Integrator::sampleFromField(vr, dims, vec2((i + 1)*xCellLenght, j*YCellLenght)));
 					buffer3 = glm::length(Integrator::sampleFromField(vr, dims, vec2(i*xCellLenght, (j + 1)*YCellLenght)));
@@ -220,15 +218,12 @@ void StreamlineIntegrator::process()
 					sum = sum + buffertMean;
 					//LogProcessorInfo(sum);
 					cellseeds.push_back(0);
-
-
 				}
 			}
 			// assign seeds randomly with weights to cells
 			float randSeed = 0;
 			float cumulative = 0;
 			for (int i = 0; i < numSeeds.get(); ++i) {
-				
 				cumulative = 0;
 				randSeed = getRandFloat()*sum;
 
@@ -241,10 +236,7 @@ void StreamlineIntegrator::process()
 					else {
 						cumulative += cellValues[c];
 					}
-
-
 				}
-
 			}
 			//set seeds depending on cell 
 			float bufferX = 0;
@@ -282,17 +274,26 @@ void StreamlineIntegrator::drawSingleStreamLine(vec2 startPoint, const VolumeRAM
     indexBufferLine->add(static_cast<std::uint32_t>(vertices.size() - 1));
     
     vec2 buffertVec2 = startPoint;
+    double arcLength = 0.0;
 	//stop integration after input amount of steps
 	for (uint32_t i = 0; i < propSteps.get(); i++)
 	{
-		buffertVec2 = Integrator::RK4(vr, dims, buffertVec2, propIntegrationDirection.get() * propStepsize.get(), directionField.get());
+		vec2 tmp;
+		tmp = Integrator::RK4(vr, dims, buffertVec2, propIntegrationDirection.get() * propStepsize.get(), directionField.get());
+		arcLength += glm::length(buffertVec2 - tmp);
+		
+		buffertVec2 = tmp;
+		vertices.push_back({ vec3(buffertVec2.x / (dims.x - 1), buffertVec2.y / (dims.y - 1), 0),
+			vec3(0), vec3(0), propStreamLineColor.get() });
+		indexBufferLine->add(static_cast<std::uint32_t>(vertices.size() - 1));
+		//indexBufferPoints->add(static_cast<std::uint32_t>(vertices.size() - 1));
+				
 		//stop integration after input arc length
-		if (0) {
-			//inputArcLength = propArcLength.get();
+		if (arcLength >= propArcLength.get()) {
 			break;
 		}
 		//stop integration at the boundary of domain 
-		else if ((buffertVec2.x >= (dims.x - 1)) || (buffertVec2.y >= (dims.y - 1))) {
+		else if ((buffertVec2.x <= 0.0) || (buffertVec2.y <= 0.0) || (buffertVec2.x >= (dims.x - 1)) || (buffertVec2.y >= (dims.y - 1))) {
 			break;
 		}
 		//stop integration at zeros of the vector field
@@ -302,12 +303,6 @@ void StreamlineIntegrator::drawSingleStreamLine(vec2 startPoint, const VolumeRAM
 		//stop integration when the velocity becomes too slow
 		else if (glm::length(Integrator::sampleFromField(vr, dims, buffertVec2)) <= propVelocityThreshold.get()) {
 			break;
-		}
-		else {
-			vertices.push_back({ vec3(buffertVec2.x / (dims.x - 1), buffertVec2.y / (dims.y - 1), 0),
-				vec3(0), vec3(0), propStreamLineColor.get() });
-			indexBufferLine->add(static_cast<std::uint32_t>(vertices.size() - 1));
-			//indexBufferPoints->add(static_cast<std::uint32_t>(vertices.size() - 1));
 		}
 	}
 }
