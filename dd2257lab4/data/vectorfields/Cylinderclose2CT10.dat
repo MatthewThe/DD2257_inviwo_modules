@@ -1,0 +1,14 @@
+RawFile: Cylinderclose2CT10.raw
+Resolution: 140 80 1
+Format: Vec2FLOAT32
+BasisVector1: 0.7 0 0
+BasisVector2: 0 0.4 0
+BasisVector3: 0 0 0
+Offset: -0.2 -0.2 5.1
+WorldVector1: 1 0 0 0
+WorldVector2: 0 1 0 0
+WorldVector3: 0 0 1 0
+WorldVector4: 0 0 0 1
+DataRange: -0.728759 1.4246
+ValueRange: -0.728759 1.4246
+Unit: arb. unit.
