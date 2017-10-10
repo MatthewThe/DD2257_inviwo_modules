@@ -13,7 +13,9 @@
 #include <dd2257lab4/dd2257lab4moduledefine.h>
 #include <inviwo/core/common/inviwo.h>
 #include <inviwo/core/datastructures/geometry/basicmesh.h>
+#include <inviwo/core/datastructures/volume/volumeram.h>
 #include <functional>
+
 
 namespace inviwo
 {
@@ -37,6 +39,13 @@ public:
     // where it is needed.
     // You may want to consider adding a helper function that computes an entire streamline
     // if you have not done so for the last assignment already.
+	static vec2 sampleFromField(const VolumeRAM* vr, size3_t dims, const vec2& position);
+
+	// TODO: Implement the methods below (one integration step with either Euler or 
+	// Runge-Kutte of 4th order integration method)
+	// Pass any other properties that influence the integration process
+	static vec2 RK4(const VolumeRAM* vr, size3_t dims, const vec2& position, const float stepsize, bool normalized = false);
+	static vec2 Euler(const VolumeRAM* vr, size3_t dims, const vec2& position, const float stepsize, bool normalized = false);
 };
 
 } // namespace

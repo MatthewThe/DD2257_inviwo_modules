@@ -60,8 +60,7 @@ protected:
     ///Our main computation function
     virtual void process() override;
 	std::vector<std::vector<double> > slowLic(const VolumeRAM* vr, vec3 vectordims,const ImageRAM* ir, vec2 texDims);
-	std::vector<vec2> getStremlinePos(const VolumeRAM* vr, vec3 vectordims, float stepsize, uint32_t maxstep, uint32_t kernelLenght,float minSizePixel, vec2 startpos);
-	std::vector<vec2> equidistantPos(const VolumeRAM* vr, vec3 vectordims, uint32_t kernelLenght, float minSizePixel, vec2 startpos, std::vector<vec2> inputPos);
+	std::vector<vec2> getStremlinePos(const VolumeRAM* vr, vec3 vectordims, float stepsize, uint32_t maxstep, float distanse, uint32_t kernelLenght,float minSizePixel);
     // (TODO: Helper functions can be defined here and then implemented in the .cpp)
     // e.g. something like a function for standardLIC, fastLIC, autoContrast, ...
 
