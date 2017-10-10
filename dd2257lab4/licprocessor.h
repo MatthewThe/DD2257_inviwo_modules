@@ -18,7 +18,11 @@
 #include <inviwo/core/datastructures/image/imageram.h>
 #include <inviwo/core/properties/boolproperty.h>
 #include <inviwo/core/properties/ordinalproperty.h>
+#include <inviwo/core/properties/optionproperty.h>
+#include <inviwo/core/properties/templateproperty.h>
+#include <inviwo/core/datastructures/volume/volumeram.h>
 #include <vector>
+#include <list>
 namespace inviwo
 {
 
@@ -59,9 +63,10 @@ public:
 protected:
     ///Our main computation function
     virtual void process() override;
-	std::vector<std::vector<double> > slowLic(const VolumeRAM* vr, vec3 vectordims,const ImageRAM* ir, vec2 texDims);
-	std::vector<vec2> getStremlinePos(const VolumeRAM* vr, vec3 vectordims, float stepsize, uint32_t maxstep, uint32_t kernelLenght,float minSizePixel, vec2 startpos);
-	std::vector<vec2> equidistantPos(const VolumeRAM* vr, vec3 vectordims, uint32_t kernelLenght, float minSizePixel, vec2 startpos, std::vector<vec2> inputPos);
+	std::vector<std::vector<double> > slowLic(const VolumeRAM* vr, const ImageRAM* ir);
+	std::vector<std::vector<double> > fastLic(const VolumeRAM* vr, const ImageRAM* ir);
+	std::vector<vec2> getStreamLine(const VolumeRAM* vr, float stepsize, uint32_t maxstep, uint32_t maxPoints, float minSizePixel, vec2 startpos);
+	std::vector<vec2> equidistantPos(const VolumeRAM* vr, uint32_t maxPoints, float minSizePixel, vec2 startpos, std::vector<vec2> inputPos);
     // (TODO: Helper functions can be defined here and then implemented in the .cpp)
     // e.g. something like a function for standardLIC, fastLIC, autoContrast, ...
 
@@ -81,10 +86,12 @@ public:
     // TODO: Declare properties
     // IntProperty prop1;
     // BoolProperty prop2;
+    TemplateOptionProperty<int> licType_;
 //Attributes
 private:
 	size3_t vectorFieldDims_;
 	size2_t texDims_;
+	uint32_t kernelLength_; // num of equidistant steps 
 };
 
 } // namespace

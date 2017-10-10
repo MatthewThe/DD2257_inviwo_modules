@@ -34,6 +34,8 @@ NoiseTextureGenerator::NoiseTextureGenerator()
     :Processor()
 	, texOut_("texOut")
     , texSize_("texSize", "Texture Size", vec2(512, 512), vec2(1, 1), vec2(2048, 2048), vec2(1, 1))
+    , randomSeed_("randSeed", "Random seed",  1, 0, 10000)
+    , blackWhiteOrGrayscale_("grayOrBw", "Texture Type")
     // TODO: Register additional properties
 {
     //Register ports
@@ -43,6 +45,10 @@ NoiseTextureGenerator::NoiseTextureGenerator()
 	addProperty(texSize_);
 
     // TODO: Register additional properties
+    blackWhiteOrGrayscale_.addOption("gray", "Grayscale", 0);
+    blackWhiteOrGrayscale_.addOption("bw", "Black and white", 1);
+    addProperty(blackWhiteOrGrayscale_);
+    addProperty(randomSeed_);
 }
 
 
@@ -62,14 +68,22 @@ void NoiseTextureGenerator::process()
     // Just like we did with the volume in other assignments we need to retrieve an editable
     // representation of the object we want to modify (here a layer) 
 	auto lr = outLayer->getEditableRepresentation<LayerRAM>();
-
+	
+	srand(randomSeed_);
 	for (int j = 0; j < texSize_.get().y; j++) {
 		for (int i = 0; i < texSize_.get().x; i++) {
 			
-			int val = 0;
-            // TODO: Randomly sample values for the texture
-
-            // A value within the ouput image is set by specifying pixel position and color
+			int val = rand() % 256;
+			// TODO: Randomly sample values for the texture
+			if (blackWhiteOrGrayscale_.get() == 1) {
+				if (val > 127) {
+					val = 255;
+				} else {
+					val = 0;
+				}
+			}
+			
+			// A value within the ouput image is set by specifying pixel position and color
 			lr->setFromDVec4(size2_t(i, j), dvec4(val, val, val, 255));
 		}
 	}

@@ -16,6 +16,7 @@
 #include <inviwo/core/ports/imageport.h>
 #include <inviwo/core/properties/optionproperty.h>
 #include <inviwo/core/properties/ordinalproperty.h>
+#include <inviwo/core/properties/templateproperty.h>
 
 namespace inviwo
 {
@@ -57,6 +58,8 @@ public:
 //Properties
 public:
     IntVec2Property texSize_;
+    IntProperty randomSeed_;
+    TemplateOptionProperty<int> blackWhiteOrGrayscale_;
 
     // TODO: Declare additional properties
     // IntProperty properyName;

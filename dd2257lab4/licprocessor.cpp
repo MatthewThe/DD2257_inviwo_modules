@@ -37,6 +37,8 @@ LICProcessor::LICProcessor()
 	, volumeIn_("volIn")
 	, noiseTexIn_("noiseTexIn")
 	, licOut_("licOut")
+	, licType_("licType", "LIC type")
+	, kernelLength_(50) /* symmetric around base pixel, i.e. the full kernel is of size (2*kernelLength_+1)
     // TODO: Register properties
 {
     // Register ports
@@ -45,13 +47,16 @@ LICProcessor::LICProcessor()
 	addPort(noiseTexIn_);
 	addPort(licOut_);
 
-// TODO: Register properties
+	// TODO: Register properties
+	licType_.addOption("fast", "fast LIC", 0);
+    licType_.addOption("base", "base LIC", 1);
+    addProperty(licType_);
 }
 
 
 void LICProcessor::process()
 {
-	LogProcessorInfo("Proccess started");
+	LogProcessorInfo("Process started");
 	// Get input
 	if (!volumeIn_.hasData()) {
 		return;
@@ -64,11 +69,15 @@ void LICProcessor::process()
 	auto vol = volumeIn_.getData();
 	vectorFieldDims_ = vol->getDimensions();
 	auto vr = vol->getRepresentation<VolumeRAM>();
-
+	
+	LogProcessorInfo("Vector field dims: " << vectorFieldDims_);
+	
 	// An accessible form of on image is retrieved analogous to a volume
 	auto tex = noiseTexIn_.getData();
 	texDims_ = tex->getDimensions();
 	auto tr = tex->getRepresentation<ImageRAM>();
+	
+	LogProcessorInfo("Texture field dims: " << texDims_);
 
 	// Prepare the output, it has the same dimensions and datatype as the output
 	// and an editable version is retrieved analogous to a volume
@@ -78,15 +87,18 @@ void LICProcessor::process()
 
 	// TODO: Implement LIC and FastLIC
 	// This code instead sets all pixels to the same gray value
-	std::vector<std::vector<double> > licTexture = slowLic(vr, vectorFieldDims_, tr, texDims_);
+	std::vector<std::vector<double> > licTexture;
+	if (licType_.get() == 0) {
+		licTexture = fastLic(vr, tr);
+	} else {
+		licTexture = slowLic(vr, tr);
+	}
 	
-	for (auto j = 0; j < texDims_.y; j++)
+	for (auto j = 0u; j < texDims_.y; j++)
 	{
 		//LogProcessorInfo(j<< "/" <<texDims_.y);
-		for (auto i = 0; i < texDims_.x; i++)
+		for (auto i = 0u; i < texDims_.x; i++)
 		{
-			
-			
 			int val = int(licTexture[i][j]);
 			lr->setFromDVec4(size2_t(i, j), dvec4(val, val, val, 255));
 		}
@@ -96,17 +108,18 @@ void LICProcessor::process()
 	licOut_.setData(outImage);
 
 }
-std::vector<std::vector<double> > LICProcessor::slowLic(const VolumeRAM* vr, vec3 vectordims,const ImageRAM* ir, vec2 texDims)
+
+std::vector<std::vector<double> > LICProcessor::slowLic(const VolumeRAM* vr, const ImageRAM* ir)
 {
 	//vector field 
 	
-	//LogProcessorInfo("simple lic started");
+	LogProcessorInfo("base lic started");
 	float stepsize = 0.01; // for integrator
-	uint32_t maxsteps = 300; // for integrator
-	std::vector<std::vector<double> > licTexture(texDims.x, std::vector<double>(texDims.y, 0));
-	//choose smaller ratio for ekvidistant stepsize
-	float xratio = texDims.x/ vectordims.x;
-	float yratio = texDims.y/vectordims.y;
+	uint32_t maxsteps = 10000; // for integrator
+	std::vector<std::vector<double> > licTexture(texDims_.x, std::vector<double>(texDims_.y, 0));
+	//choose smaller ratio for equidistant stepsize
+	float xratio = static_cast<float>(texDims_.x) / (vectorFieldDims_.x - 1);
+	float yratio = static_cast<float>(texDims_.y) / (vectorFieldDims_.y - 1);
 	float minSizePixel = 0;
 	if (xratio <= yratio) 
 	{
@@ -118,32 +131,25 @@ std::vector<std::vector<double> > LICProcessor::slowLic(const VolumeRAM* vr, vec
 	}
 	//LogProcessorInfo("minSizePixel:"<< minSizePixel);
 	
-	 // kernel lenght = minSizePixel * kernelLenght
-	uint32_t kernelLenght = 51; // num of eqvidistant steps 
+	 // kernel lenght = minSizePixel * kernelLength_
 
 	
-	for (auto pixelj = 0; pixelj <(texDims.y-1); pixelj++)
+	for (auto pixelj = 0u; pixelj < texDims_.y; pixelj++)
 	{
 		//LogProcessorInfo(j<< "/" <<texDims_.y);
-		for (auto pixeli = 0; pixeli < (texDims.x - 1); pixeli++)
+		for (auto pixeli = 0u; pixeli < texDims_.x; pixeli++)
 		{
 			/*make streamline forward and backward*/
 
-			vec2 startPos = vec2(pixeli/ minSizePixel, pixelj/ minSizePixel);
+			vec2 startPos = vec2(pixeli / minSizePixel, pixelj / minSizePixel);
 
-			vec2 backwardVec2 = vec2(startPos.x, startPos.y);
-			vec2 buffertVec2 = vec2(startPos.x, startPos.y);
-			float forwardDistance = 0;
-			float backwardDistance = 0;
-			uint32_t Stepcounter = 0;
-
-			std::vector<vec2> streamlineForward = LICProcessor::getStremlinePos(vr,  vectordims, stepsize,  maxsteps,  kernelLenght,minSizePixel, startPos);
-			std::vector<vec2> streamlineBackward = LICProcessor::getStremlinePos(vr, vectordims, -1*stepsize, maxsteps, kernelLenght, minSizePixel, startPos);
+			std::vector<vec2> streamlineForward = getStreamLine(vr, stepsize, maxsteps, kernelLength_, minSizePixel, startPos);
+			std::vector<vec2> streamlineBackward = getStreamLine(vr, -1*stepsize, maxsteps, kernelLength_, minSizePixel, startPos);
 		
 			
-			//ekvidistant point along the given streamline  forward
-			std::vector<vec2> EkvidistantPointsF = LICProcessor::equidistantPos( vr, vectordims,  kernelLenght,  minSizePixel,  startPos, streamlineForward);
-			std::vector<vec2> EkvidistantPointsB = LICProcessor::equidistantPos(vr, vectordims, kernelLenght, minSizePixel, startPos, streamlineBackward);
+			//equidistant point along the given streamline forward
+			std::vector<vec2> equidistantPointsF = equidistantPos(vr, kernelLength_, minSizePixel, startPos, streamlineForward);
+			std::vector<vec2> equidistantPointsB = equidistantPos(vr, kernelLength_, minSizePixel, startPos, streamlineBackward);
 			
 			dvec4 bufferpixel = dvec4(0,0,0,0);
 			float sumKernel = 0;
@@ -153,16 +159,16 @@ std::vector<std::vector<double> > LICProcessor::slowLic(const VolumeRAM* vr, vec
 			float denominator = 0;
 			vec2 bufferPopVector = vec2(0, 0);
 			
-			// for each ekvidistantpoint, get pixel pos, get pixel value, plus to sum
-			EkvidistantPointsF.insert(EkvidistantPointsF.end(), EkvidistantPointsB.begin(), EkvidistantPointsB.end());
-
-			while (EkvidistantPointsF.empty() == false)
+			// for each equidistant point, get pixel pos, get pixel value, plus to sum
+			equidistantPointsF.insert(equidistantPointsF.end(), equidistantPointsB.begin(), equidistantPointsB.end());
+			
+			while (!equidistantPointsF.empty())
 			{
-				bufferPopVector = EkvidistantPointsF.back();
-				EkvidistantPointsF.pop_back();
+				bufferPopVector = equidistantPointsF.back();
+				equidistantPointsF.pop_back();
 				bufferXpixel = floor(minSizePixel*bufferPopVector.x);
 				bufferYpixel = floor(minSizePixel*bufferPopVector.y);
-				if (bufferXpixel < 0 || bufferYpixel < 0 || bufferXpixel > 500 || bufferYpixel > 500)
+				if (bufferXpixel < 0 || bufferYpixel < 0 || bufferXpixel > (texDims_.x - 1) || bufferYpixel > (texDims_.y - 1))
 				{
 					//LogProcessorInfo("pixel outside" << bufferXpixel << " " << bufferYpixel);
 				}
@@ -172,7 +178,7 @@ std::vector<std::vector<double> > LICProcessor::slowLic(const VolumeRAM* vr, vec
 
 					bufferpixel = ir->readPixel(size2_t(bufferXpixel, bufferYpixel), inviwo::LayerType('0'));
 					//LogProcessorInfo("pixel" << bufferpixel);
-					sumKernel = sumKernel + bufferpixel.x + bufferpixel.y + bufferpixel.z;
+					sumKernel += bufferpixel.x + bufferpixel.y + bufferpixel.z;
 					denominator++;
 				}
 				
@@ -184,132 +190,188 @@ std::vector<std::vector<double> > LICProcessor::slowLic(const VolumeRAM* vr, vec
 			
 		}
 	}
+	
+	LogProcessorInfo("base lic finished");
 
 	return licTexture;
 }
 
-std::vector<vec2> LICProcessor::getStremlinePos(const VolumeRAM* vr, vec3 vectordims, float stepsize, uint32_t maxstep, uint32_t kernelLenght, float minSizePixel,vec2 startpos)
+std::vector<std::vector<double> > LICProcessor::fastLic(const VolumeRAM* vr, const ImageRAM* ir)
+{
+	//vector field 
+	
+	LogProcessorInfo("fast lic started");
+	float stepsize = 0.01; // for integrator
+	uint32_t maxsteps = 10000; // for integrator
+	std::vector<std::vector<double> > licTexture(texDims_.x, std::vector<double>(texDims_.y, 0));
+	//choose smaller ratio for equidistant stepsize
+	float xratio = static_cast<float>(texDims_.x) / (vectorFieldDims_.x - 1);
+	float yratio = static_cast<float>(texDims_.y) / (vectorFieldDims_.y - 1);
+	float minSizePixel = 0; // 1.0 / (size of 1 pixel in vectorField units)
+	if (xratio <= yratio) 
+	{
+		minSizePixel = xratio;
+	}
+	else 
+	{
+		minSizePixel = yratio;
+	}
+	//LogProcessorInfo("minSizePixel:"<< minSizePixel);
+	
+	uint32_t maxArcLength = texDims_.x * texDims_.y;
+	std::vector<std::vector<bool> > visited(texDims_.x, std::vector<bool>(texDims_.y, false));
+	
+	 // kernel lenght = minSizePixel * kernelLength_
+
+	size_t skipped = 0u;
+	for (auto pixelj = 0u; pixelj < texDims_.y; pixelj++)
+	{
+		//LogProcessorInfo(j<< "/" <<texDims_.y);
+		for (auto pixeli = 0u; pixeli < texDims_.x; pixeli++)
+		{			
+			/*make streamline forward and backward*/
+			if (visited[pixeli][pixelj]) {
+				++skipped;
+				continue;
+			}
+			
+			vec2 startPos = vec2(pixeli / minSizePixel, pixelj / minSizePixel);
+
+			std::vector<vec2> streamlineForward = getStreamLine(vr, stepsize, maxsteps, maxArcLength, minSizePixel, startPos);
+			std::vector<vec2> streamlineBackward = getStreamLine(vr, -1*stepsize, maxsteps, maxArcLength, minSizePixel, startPos);
+			
+			//LogProcessorInfo("1 backward, forward = " << streamlineBackward.size() << ", "  << streamlineForward.size());
+			
+			//equidistant point along the given streamline forward
+			std::vector<vec2> equidistantPointsF = equidistantPos(vr, maxArcLength, minSizePixel, startPos, streamlineForward);
+			std::vector<vec2> equidistantPointsB = equidistantPos(vr, maxArcLength, minSizePixel, startPos, streamlineBackward);
+			
+			//LogProcessorInfo("backward, forward = " << equidistantPointsB.size() << ", "  << equidistantPointsF.size());
+			
+			
+			dvec4 bufferpixel = dvec4(0,0,0,0);
+			float sumKernel = 0;
+			
+			float bufferXpixel = 0;
+			float bufferYpixel = 0;
+			vec2 bufferPopVector = vec2(0, 0);
+			
+			// for each equidistant point, get pixel pos, get pixel value, plus to sum
+			std::reverse(equidistantPointsB.begin(), equidistantPointsB.end());
+			equidistantPointsB.insert(equidistantPointsB.end(), equidistantPointsF.begin(), equidistantPointsF.end());
+			//LogProcessorInfo("total = " << equidistantPointsB.size());
+			
+			std::list<float> kernelValues;
+			size_t kernelIndex = 0u;
+			for (size_t index = 0u; index < equidistantPointsB.size(); ++index)
+			{
+				vec2 currentPos = equidistantPointsB.at(index);
+				while (kernelIndex - index < kernelLength_ && kernelIndex < equidistantPointsB.size()) {
+					bufferPopVector = equidistantPointsB.at(kernelIndex++);
+					bufferXpixel = floor(minSizePixel*bufferPopVector.x);
+					bufferYpixel = floor(minSizePixel*bufferPopVector.y);
+					if (bufferXpixel < 0 || bufferYpixel < 0 || bufferXpixel > (texDims_.x - 1) || bufferYpixel > (texDims_.y - 1))
+					{
+						//LogProcessorInfo("pixel outside" << bufferXpixel << " " << bufferYpixel);
+					}
+					else
+					{
+						//LogProcessorInfo("pixel" << bufferXpixel << " " << bufferYpixel);
+
+						bufferpixel = ir->readPixel(size2_t(bufferXpixel, bufferYpixel), inviwo::LayerType('0'));
+						//LogProcessorInfo("pixel" << bufferpixel);
+						float bufferPixelValue = bufferpixel.x + bufferpixel.y + bufferpixel.z;
+						kernelValues.push_back(bufferPixelValue);
+						
+						sumKernel += bufferPixelValue;
+					}
+				}
+				
+				if (kernelValues.size() >= kernelLength_ * 2 || kernelIndex == equidistantPointsB.size() - 1) {
+					sumKernel -= kernelValues.front();
+					kernelValues.pop_front();
+				}
+				
+				float currentXpixel = minSizePixel * currentPos.x;
+				float currentYpixel = minSizePixel * currentPos.y;
+				
+				size_t currentXpixelInt = std::min(static_cast<size_t>(std::floor(currentXpixel)), texDims_.x - 1);
+				size_t currentYpixelInt = std::min(static_cast<size_t>(std::floor(currentYpixel)), texDims_.y - 1);
+				
+				
+				//LogProcessorInfo(minSizePixel << " "  << currentPos << " " << vectorFieldDims_ << " " << currentXpixel << " "  << currentYpixel);
+				
+				float pixelValue = sumKernel / (kernelValues.size() * 3);
+				licTexture.at(currentXpixelInt).at(currentYpixelInt) = pixelValue;
+				//LogProcessorInfo("visited " << currentXpixelInt << " "  << currentYpixelInt);
+				visited.at(currentXpixelInt).at(currentYpixelInt) = true;
+
+			}			
+			//LogProcessorInfo("pixel value" << pixelValue);
+		}
+	}
+	
+	LogProcessorInfo("fast lic finished; could skip " << skipped << "/" << texDims_.x*texDims_.y << " pixels" );
+	
+	return licTexture;
+}
+
+std::vector<vec2> LICProcessor::getStreamLine(const VolumeRAM* vr, float stepsize, uint32_t maxstep, uint32_t maxPoints, float minSizePixel, vec2 startpos)
 {
 	vec2 buffertvector1 = vec2(startpos.x, startpos.y);
 	vec2 buffertvector2 = vec2(startpos.x, startpos.y);
-	float cumulativDistance = 0;
-	uint32_t Stepcounter = 0;
+	float cumulativeDistance = 0.0f;
+	uint32_t stepCounter = 0u;
 
 	std::vector<vec2> streamvector;
 	
 	streamvector.push_back(startpos);
 
-
 	//Forward streamline
-	while (cumulativDistance < kernelLenght / minSizePixel && Stepcounter < maxstep)
+	while (cumulativeDistance < maxPoints / minSizePixel && stepCounter++ < maxstep)
 	{
 		//integration step and store pos
 		buffertvector2 = buffertvector1;
-		buffertvector1 = Integrator::RK4(vr, vectordims, buffertvector1, stepsize, false);
-		if (buffertvector2.x == buffertvector1.x && buffertvector2.y == buffertvector1.y)
+		buffertvector1 = Integrator::RK4(vr, vectorFieldDims_, buffertvector1, stepsize, false);
+		float distance = glm::length(buffertvector1 - buffertvector2);
+		if (distance == 0)
 		{
-			//no change give up 
+			//LogProcessorInfo("no change " << Integrator::sampleFromField(vr, vectorFieldDims_, buffertvector1));
+			// no change, give up 
+			break;
+		} else if (buffertvector1.x < 0 || buffertvector1.x > vectorFieldDims_.x 
+						|| buffertvector1.y < 0 || buffertvector1.y > vectorFieldDims_.y )
+		{
+			// outside of canvas, give up
+			//LogProcessorInfo("outside canvas");
 			break;
 		}
 		streamvector.push_back(buffertvector1);
-		//distans calc
-		float deltax = (buffertvector1.x - buffertvector2.x)*(buffertvector1.x - buffertvector2.x);
-		float deltay = (buffertvector1.y - buffertvector2.y)*(buffertvector1.y - buffertvector2.y);
-		cumulativDistance = cumulativDistance + sqrt(deltax + deltay);
-
-		Stepcounter = Stepcounter + 1;
-
+		cumulativeDistance += distance;
 	}
+	//LogProcessorInfo("integrated point: " << buffertvector1);
 	return streamvector;
 }
 
-std::vector<vec2> LICProcessor::equidistantPos(const VolumeRAM * vr, vec3 vectordims, uint32_t kernelLenght, float minSizePixel, vec2 startpos, std::vector<vec2> inputPos)
+std::vector<vec2> LICProcessor::equidistantPos(const VolumeRAM * vr, uint32_t maxPoints, float minSizePixel, vec2 startpos, std::vector<vec2> inputPos)
 {
-	std::vector<vec2> EkvidistantPoints;
+	std::vector<vec2> equidistantPoints;
 	vec2 bufferpos = 1.0f*startpos;
-	float bufferlenght = 0;
-	float bufferLinesegmentLenght = 0;
-	EkvidistantPoints.push_back(startpos);
-	float a = 0;
-	float m = 0;
-	uint32_t index = 0;
-	vec2 boundrycheck = vec2(0, 0);
-	//LogProcessorInfo("started ekvi:" << backwardVec2);
-	for (uint32_t i = 0; i < (kernelLenght - 1) / 2; i++)
-	{
-
-		while (bufferlenght < 1 / minSizePixel)
-		{
-			//LogProcessorInfo("bufferlenght" << bufferlenght)
-			if ((bufferpos.x == boundrycheck.x && bufferpos.y == boundrycheck.y) || index >= (inputPos.size()))
-			{
-				//LogProcessorInfo("reached 0 0 " << bufferpos << (streamlineForward.size() - 1));
-				EkvidistantPoints.push_back(inputPos[index + 1]);
-				break;
-
-			}
-			//LogProcessorInfo("stuck in a loop with me " << bufferlenght)
-			float deltax = (bufferpos.x - inputPos[index].x)*(bufferpos.x - inputPos[index].x);
-			float deltay = (bufferpos.y - inputPos[index].y)*(bufferpos.y - inputPos[index].y);
-
-			bufferLinesegmentLenght = sqrt(deltax + deltay);
-
-			if (bufferlenght + bufferLinesegmentLenght <= 1 / minSizePixel)
-			{
-				// distans not reached on this intervall, check next points
-				bufferlenght = bufferlenght + bufferLinesegmentLenght;
-				bufferpos = inputPos[index];
-				index = index + 1;
-			}
-			else
-			{
-				// distans in between points
-				a = 1 / minSizePixel - bufferlenght;
-				
-				m = ( inputPos[index].x) / ( inputPos[index].y);
-
-				if ((inputPos[index].y) == 0)
-				{
-					//only x
-					bufferpos.x = bufferpos.x + a;
-					bufferlenght = 1 / minSizePixel;
-
-				}
-				else if ( inputPos[index].x == 0)
-				{
-					//only y
-					bufferpos.y = bufferpos.y + a;
-					bufferlenght = 1 / minSizePixel;
-				}
-				else
-				{
-					float buffline2 = 0;
-					buffline2 = sqrt(a / (1 + m*m));
-					bufferpos = bufferpos + (a / bufferLinesegmentLenght)*(bufferpos - inputPos[index]);
-					//LogProcessorInfo("calc new point with magic: "<<"value"<< bufferLinesegmentLenght)
-					bufferlenght = 1 / minSizePixel;
-
-				}
-
-			}
-
+	float bufferLength = 0;
+	float equidistance = 1.0 / minSizePixel;
+	equidistantPoints.push_back(startpos);
+	for (auto currentPos : inputPos) {
+		float bufferLineSegmentLength = glm::length(bufferpos - currentPos);
+		while (bufferLength + bufferLineSegmentLength > equidistance * equidistantPoints.size()) {
+			float a = equidistance * equidistantPoints.size() - bufferLength;
+			equidistantPoints.push_back(bufferpos + (a / bufferLineSegmentLength)*(currentPos - bufferpos));
+			if (equidistantPoints.size() == maxPoints) break;
 		}
-		/*
-		LogProcessorInfo("bufferlenght" << bufferlenght)
-		if ((bufferpos.x == boundrycheck.x && bufferpos.y == boundrycheck.y) || indexForward >= (streamlineForward.size() - 1))
-		{
-		LogProcessorInfo("reached 0 0 " << bufferpos << (streamlineForward.size() - 1));
-		EkvidistantPoints.push_back(streamlineForward[indexForward + 1]);
-		break;
-
-		}
-		*/
-		EkvidistantPoints.push_back(bufferpos);
-		//LogProcessorInfo("added point approx" << bufferpos);
-		bufferlenght = 0;
-
+		if (equidistantPoints.size() == maxPoints) break;
+		bufferLength += bufferLineSegmentLength;
+		bufferpos = currentPos;
 	}
-	return EkvidistantPoints;
+	return equidistantPoints;
 }
 
 
