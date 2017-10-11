@@ -39,6 +39,8 @@ LICProcessor::LICProcessor()
 	, licOut_("licOut")
 	, licType_("licType", "LIC type")
 	, kernelSize_("kernelLength", "Kernel Length", 50, 10, 100)
+	, contrastMean_("contrastMean", "Contrast Mean", 0.5, 0, 1)
+	, contrastSD_("contrastSD", "Contrast SD", 0.5, 0, 1)
 	//, kernelLength_(50) /* symmetric around base pixel, i.e. the full kernel is of size (2*kernelLength_+1) */
     // TODO: Register properties
 {
@@ -53,6 +55,8 @@ LICProcessor::LICProcessor()
     licType_.addOption("base", "base LIC", 1);
     addProperty(licType_);
 	addProperty(kernelSize_);
+	addProperty(contrastMean_);
+	addProperty(contrastSD_);
 }
 
 
@@ -88,6 +92,7 @@ void LICProcessor::process()
 	auto lr = outLayer->getEditableRepresentation<LayerRAM>();
 
 	// TODO: Implement LIC and FastLIC
+	// user-defined kernel size
 	int kernelLength_ = kernelSize_.get();
 	// This code instead sets all pixels to the same gray value
 	std::vector<std::vector<double> > licTexture;
@@ -96,13 +101,38 @@ void LICProcessor::process()
 	} else {
 		licTexture = slowLic(vr, tr, kernelLength_);
 	}
-	
+
+	// calculate pixel mean and SD value after convolution for later contrast enhancement
+	int counter = 0;
+	float sum = 0.;
+	float sumSquare = 0.;
+	for (auto j = 0u; j < texDims_.y; j++) {
+		for (auto i = 0u; i < texDims_.x; i++) {
+			int val = int(licTexture[i][j]);
+			if (licTexture[i][j] != 255) {	/* if the pixel is not black*/
+				sum += licTexture[i][j];
+				sumSquare += licTexture[i][j] * licTexture[i][j];
+			}
+			counter++;
+		}
+	}
+	float meanBefore = sum / counter;
+	float SDBefore = sqrt((sumSquare - counter*meanBefore*meanBefore) / (counter - 1));
+	contrastMean_.set(meanBefore);		/* set mean and SD value slider to the value after initial convolution*/
+	contrastSD_.set(SDBefore);
+
+	float meanAfter = contrastMean_.get()*255;
+	float SDAfter = contrastSD_.get()*255;
+	float stretchFactor = SDAfter / SDBefore;
+
 	for (auto j = 0u; j < texDims_.y; j++)
 	{
 		//LogProcessorInfo(j<< "/" <<texDims_.y);
 		for (auto i = 0u; i < texDims_.x; i++)
 		{
 			int val = int(licTexture[i][j]);
+			// contrast enhancement
+			val = meanAfter + stretchFactor*(val - meanBefore);
 			lr->setFromDVec4(size2_t(i, j), dvec4(val, val, val, 255));
 		}
 

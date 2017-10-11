@@ -88,6 +88,8 @@ public:
     // BoolProperty prop2;
     TemplateOptionProperty<int> licType_;
 	IntProperty kernelSize_;
+	FloatProperty contrastMean_;
+	FloatProperty contrastSD_;
 
 //Attributes
 private:
