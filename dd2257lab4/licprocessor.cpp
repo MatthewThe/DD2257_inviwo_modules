@@ -38,7 +38,8 @@ LICProcessor::LICProcessor()
 	, noiseTexIn_("noiseTexIn")
 	, licOut_("licOut")
 	, licType_("licType", "LIC type")
-	, kernelLength_(50) /* symmetric around base pixel, i.e. the full kernel is of size (2*kernelLength_+1)
+	, kernelSize_("kernelLength", "Kernel Length", 50, 10, 100)
+	//, kernelLength_(50) /* symmetric around base pixel, i.e. the full kernel is of size (2*kernelLength_+1) */
     // TODO: Register properties
 {
     // Register ports
@@ -51,6 +52,7 @@ LICProcessor::LICProcessor()
 	licType_.addOption("fast", "fast LIC", 0);
     licType_.addOption("base", "base LIC", 1);
     addProperty(licType_);
+	addProperty(kernelSize_);
 }
 
 
@@ -86,12 +88,13 @@ void LICProcessor::process()
 	auto lr = outLayer->getEditableRepresentation<LayerRAM>();
 
 	// TODO: Implement LIC and FastLIC
+	int kernelLength_ = kernelSize_.get();
 	// This code instead sets all pixels to the same gray value
 	std::vector<std::vector<double> > licTexture;
 	if (licType_.get() == 0) {
-		licTexture = fastLic(vr, tr);
+		licTexture = fastLic(vr, tr, kernelLength_);
 	} else {
-		licTexture = slowLic(vr, tr);
+		licTexture = slowLic(vr, tr, kernelLength_);
 	}
 	
 	for (auto j = 0u; j < texDims_.y; j++)
@@ -109,7 +112,7 @@ void LICProcessor::process()
 
 }
 
-std::vector<std::vector<double> > LICProcessor::slowLic(const VolumeRAM* vr, const ImageRAM* ir)
+std::vector<std::vector<double> > LICProcessor::slowLic(const VolumeRAM* vr, const ImageRAM* ir, int kernelLength_)
 {
 	//vector field 
 	
@@ -196,7 +199,7 @@ std::vector<std::vector<double> > LICProcessor::slowLic(const VolumeRAM* vr, con
 	return licTexture;
 }
 
-std::vector<std::vector<double> > LICProcessor::fastLic(const VolumeRAM* vr, const ImageRAM* ir)
+std::vector<std::vector<double> > LICProcessor::fastLic(const VolumeRAM* vr, const ImageRAM* ir, int kernelLength_)
 {
 	//vector field 
 	

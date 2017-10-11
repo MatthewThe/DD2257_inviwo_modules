@@ -63,8 +63,8 @@ public:
 protected:
     ///Our main computation function
     virtual void process() override;
-	std::vector<std::vector<double> > slowLic(const VolumeRAM* vr, const ImageRAM* ir);
-	std::vector<std::vector<double> > fastLic(const VolumeRAM* vr, const ImageRAM* ir);
+	std::vector<std::vector<double> > slowLic(const VolumeRAM* vr, const ImageRAM* ir, int kernelLength_);
+	std::vector<std::vector<double> > fastLic(const VolumeRAM* vr, const ImageRAM* ir, int kernelLength_);
 	std::vector<vec2> getStreamLine(const VolumeRAM* vr, float stepsize, uint32_t maxstep, uint32_t maxPoints, float minSizePixel, vec2 startpos);
 	std::vector<vec2> equidistantPos(const VolumeRAM* vr, uint32_t maxPoints, float minSizePixel, vec2 startpos, std::vector<vec2> inputPos);
     // (TODO: Helper functions can be defined here and then implemented in the .cpp)
@@ -87,11 +87,13 @@ public:
     // IntProperty prop1;
     // BoolProperty prop2;
     TemplateOptionProperty<int> licType_;
+	IntProperty kernelSize_;
+
 //Attributes
 private:
 	size3_t vectorFieldDims_;
 	size2_t texDims_;
-	uint32_t kernelLength_; // num of equidistant steps 
+	//uint32_t kernelLength_; // num of equidistant steps 
 };
 
 } // namespace
