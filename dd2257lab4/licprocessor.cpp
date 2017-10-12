@@ -10,6 +10,7 @@
 
 #include <dd2257lab4/licprocessor.h>
 #include <dd2257lab4/integrator.h>
+#include <inviwo/core/util/utilities.h>
 // #include <dd2257lab3/integrator.h>
 #include <inviwo/core/datastructures/volume/volumeram.h>
 
@@ -38,10 +39,11 @@ LICProcessor::LICProcessor()
 	, noiseTexIn_("noiseTexIn")
 	, licOut_("licOut")
 	, licType_("licType", "LIC type")
-	, kernelSize_("kernelLength", "Kernel Length", 50, 10, 100)
+	, kernelSize_("kernelLength", "Kernel Length", 10, 1, 500)
+	, enhanceContrast_("enhanceContrast", "Enhance contrast", false)
 	, contrastMean_("contrastMean", "Contrast Mean", 0.5, 0, 1)
-	, contrastSD_("contrastSD", "Contrast SD", 0.5, 0, 1)
-	, colourTexture_("colourTexture", "Colour Texture", FALSE)
+	, contrastSD_("contrastSD", "Contrast SD", 0.1, 0, 1)
+	, colourTexture_("colourTexture", "Colour Texture", false)
 	//, kernelLength_(50) /* symmetric around base pixel, i.e. the full kernel is of size (2*kernelLength_+1) */
     // TODO: Register properties
 {
@@ -56,9 +58,22 @@ LICProcessor::LICProcessor()
     licType_.addOption("base", "base LIC", 1);
     addProperty(licType_);
 	addProperty(kernelSize_);
+	addProperty(enhanceContrast_);
 	addProperty(contrastMean_);
 	addProperty(contrastSD_);
 	addProperty(colourTexture_);
+	
+	enhanceContrast_.onChange([this]()
+	{
+      if (enhanceContrast_.get())
+      {
+          util::show(contrastMean_, contrastSD_);
+      }
+      else
+      {
+          util::hide(contrastMean_, contrastSD_);
+      }
+  	});
 }
 
 
@@ -94,14 +109,12 @@ void LICProcessor::process()
 	auto lr = outLayer->getEditableRepresentation<LayerRAM>();
 
 	// TODO: Implement LIC and FastLIC
-	// user-defined kernel size
-	int kernelLength_ = kernelSize_.get();
 	// This code instead sets all pixels to the same gray value
 	std::vector<std::vector<double> > licTexture;
 	if (licType_.get() == 0) {
-		licTexture = fastLic(vr, tr, kernelLength_);
+		licTexture = fastLic(vr, tr);
 	} else {
-		licTexture = slowLic(vr, tr, kernelLength_);
+		licTexture = slowLic(vr, tr);
 	}
 
 	// calculate pixel mean and SD value after convolution for later contrast enhancement
@@ -110,29 +123,31 @@ void LICProcessor::process()
 	float sumSquare = 0.;
 	float magnitudeMax = 0.;
 	float magnitudeMin = HUGE_VALF;
+	float xratio = static_cast<float>(vectorFieldDims_.x - 1) / texDims_.x;
+	float yratio = static_cast<float>(vectorFieldDims_.y - 1) / texDims_.y;
 	for (auto j = 0u; j < texDims_.y; j++) {
-		for (auto i = 0u; i < texDims_.x; i++) {
-			int val = int(licTexture[i][j]);
-			if (licTexture[i][j] != 255) {	/* if the pixel is not black*/
-				sum += licTexture[i][j];
-				sumSquare += licTexture[i][j] * licTexture[i][j];
-				// get max and min magnitude of the vector field for later colour LIC texture
-				auto vector = vr->getAsDVec2(size3_t(i*vectorFieldDims_.x / texDims_.x, j*vectorFieldDims_.y / texDims_.y, 0));
-				float magnitude = sqrt(vector[0] * vector[0] + vector[1] * vector[1]);
-				if (magnitude > magnitudeMax) {
-					magnitudeMax = magnitude;
-				}
-				else if (magnitude < magnitudeMin) {
-					magnitudeMin = magnitude;
-				}
-			}
-			counter++;
-		}
+	  for (auto i = 0u; i < texDims_.x; i++) {
+		  int val = int(licTexture[i][j]);
+		  if (val != 0) {	/* if the pixel is not black*/
+			  sum += val;
+			  sumSquare += val * val;
+			  // get max and min magnitude of the vector field for later colour LIC texture
+			  auto vector = Integrator::sampleFromField(vr, vectorFieldDims_, vec2(i*xratio, j*yratio));
+			  float magnitude = glm::length(vector);
+			  if (magnitude > magnitudeMax) {
+				  magnitudeMax = magnitude;
+			  }
+			  else if (magnitude < magnitudeMin) {
+				  magnitudeMin = magnitude;
+			  }
+		  }
+		  counter++;
+	  }
 	}
 	float meanBefore = sum / counter;
 	float SDBefore = sqrt((sumSquare - counter*meanBefore*meanBefore) / (counter - 1));
-	contrastMean_.set(meanBefore);		/* set mean and SD value slider to the value after initial convolution*/
-	contrastSD_.set(SDBefore);
+	//contrastMean_.set(meanBefore / 255);		/* set mean and SD value slider to the value after initial convolution*/
+	//contrastSD_.set(SDBefore / 255);
 
 	float meanAfter = contrastMean_.get()*255;
 	float SDAfter = contrastSD_.get()*255;
@@ -145,15 +160,17 @@ void LICProcessor::process()
 		{
 			int val = int(licTexture[i][j]);
 			// contrast enhancement
-			val = meanAfter + stretchFactor*(val - meanBefore);
-			if (colourTexture_.get() == FALSE) {
+			if (enhanceContrast_.get()) {
+				val = meanAfter + stretchFactor*(val - meanBefore);
+			}
+			if (!colourTexture_.get()) {
 				lr->setFromDVec4(size2_t(i, j), dvec4(val, val, val, 255));
 			}
 			else {
 				// colour LIC texture
-				auto vector = vr->getAsDVec2(size3_t(i*vectorFieldDims_.x / texDims_.x, j*vectorFieldDims_.y / texDims_.y, 0));
-				float magnitude = sqrt(vector[0] * vector[0] + vector[1] * vector[1]);
-				float magnitudeRatio = (magnitude - magnitudeMin) / (magnitudeMax-magnitudeMin);
+				auto vector = Integrator::sampleFromField(vr, vectorFieldDims_, vec2(i*xratio, j*yratio));
+				float magnitude = glm::length(vector);
+				float magnitudeRatio = (magnitude - magnitudeMin) / (magnitudeMax - magnitudeMin);
 				lr->setFromDVec4(size2_t(i, j), dvec4(magnitudeRatio*val, val, (1-magnitudeRatio)*val, 255));
 			}
 		}
@@ -164,7 +181,7 @@ void LICProcessor::process()
 
 }
 
-std::vector<std::vector<double> > LICProcessor::slowLic(const VolumeRAM* vr, const ImageRAM* ir, int kernelLength_)
+std::vector<std::vector<double> > LICProcessor::slowLic(const VolumeRAM* vr, const ImageRAM* ir)
 {
 	//vector field 
 	
@@ -198,13 +215,13 @@ std::vector<std::vector<double> > LICProcessor::slowLic(const VolumeRAM* vr, con
 
 			vec2 startPos = vec2(pixeli / minSizePixel, pixelj / minSizePixel);
 
-			std::vector<vec2> streamlineForward = getStreamLine(vr, stepsize, maxsteps, kernelLength_, minSizePixel, startPos);
-			std::vector<vec2> streamlineBackward = getStreamLine(vr, -1*stepsize, maxsteps, kernelLength_, minSizePixel, startPos);
+			std::vector<vec2> streamlineForward = getStreamLine(vr, stepsize, maxsteps, kernelSize_.get(), minSizePixel, startPos);
+			std::vector<vec2> streamlineBackward = getStreamLine(vr, -1*stepsize, maxsteps, kernelSize_.get(), minSizePixel, startPos);
 		
 			
 			//equidistant point along the given streamline forward
-			std::vector<vec2> equidistantPointsF = equidistantPos(vr, kernelLength_, minSizePixel, startPos, streamlineForward);
-			std::vector<vec2> equidistantPointsB = equidistantPos(vr, kernelLength_, minSizePixel, startPos, streamlineBackward);
+			std::vector<vec2> equidistantPointsF = equidistantPos(vr, kernelSize_.get(), minSizePixel, startPos, streamlineForward);
+			std::vector<vec2> equidistantPointsB = equidistantPos(vr, kernelSize_.get(), minSizePixel, startPos, streamlineBackward);
 			
 			dvec4 bufferpixel = dvec4(0,0,0,0);
 			float sumKernel = 0;
@@ -251,7 +268,7 @@ std::vector<std::vector<double> > LICProcessor::slowLic(const VolumeRAM* vr, con
 	return licTexture;
 }
 
-std::vector<std::vector<double> > LICProcessor::fastLic(const VolumeRAM* vr, const ImageRAM* ir, int kernelLength_)
+std::vector<std::vector<double> > LICProcessor::fastLic(const VolumeRAM* vr, const ImageRAM* ir)
 {
 	//vector field 
 	
@@ -275,8 +292,6 @@ std::vector<std::vector<double> > LICProcessor::fastLic(const VolumeRAM* vr, con
 	
 	uint32_t maxArcLength = texDims_.x * texDims_.y;
 	std::vector<std::vector<bool> > visited(texDims_.x, std::vector<bool>(texDims_.y, false));
-	
-	 // kernel lenght = minSizePixel * kernelLength_
 
 	size_t skipped = 0u;
 	for (auto pixelj = 0u; pixelj < texDims_.y; pixelj++)
@@ -321,7 +336,7 @@ std::vector<std::vector<double> > LICProcessor::fastLic(const VolumeRAM* vr, con
 			for (size_t index = 0u; index < equidistantPointsB.size(); ++index)
 			{
 				vec2 currentPos = equidistantPointsB.at(index);
-				while (kernelIndex - index < kernelLength_ && kernelIndex < equidistantPointsB.size()) {
+				while (kernelIndex - index < kernelSize_.get() && kernelIndex < equidistantPointsB.size()) {
 					bufferPopVector = equidistantPointsB.at(kernelIndex++);
 					bufferXpixel = floor(minSizePixel*bufferPopVector.x);
 					bufferYpixel = floor(minSizePixel*bufferPopVector.y);
@@ -342,7 +357,7 @@ std::vector<std::vector<double> > LICProcessor::fastLic(const VolumeRAM* vr, con
 					}
 				}
 				
-				if (kernelValues.size() >= kernelLength_ * 2 || kernelIndex == equidistantPointsB.size() - 1) {
+				if (kernelValues.size() >= kernelSize_.get() * 2 || kernelIndex == equidistantPointsB.size() - 1) {
 					sumKernel -= kernelValues.front();
 					kernelValues.pop_front();
 				}
