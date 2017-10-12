@@ -111,12 +111,25 @@ void LICProcessor::process()
 	// TODO: Implement LIC and FastLIC
 	// This code instead sets all pixels to the same gray value
 	std::vector<std::vector<double> > licTexture;
+	
+	time_t startTime;
+	clock_t startClock;
+	time(&startTime);
+	startClock = clock();
+	
 	if (licType_.get() == 0) {
 		licTexture = fastLic(vr, tr);
 	} else {
 		licTexture = slowLic(vr, tr);
 	}
+	
+	time_t endTime;
+	clock_t endClock = clock();
+	time(&endTime);
+	double diff_time = difftime(endTime, startTime);
 
+	LogProcessorInfo("Running LIC took: " << ((double)(endClock - startClock)) / (double)CLOCKS_PER_SEC
+						<< " cpu seconds or " << diff_time << " seconds wall time");
 	// calculate pixel mean and SD value after convolution for later contrast enhancement
 	int counter = 0;
 	float sum = 0.;
@@ -152,7 +165,7 @@ void LICProcessor::process()
 	float meanAfter = contrastMean_.get()*255;
 	float SDAfter = contrastSD_.get()*255;
 	float stretchFactor = SDAfter / SDBefore;
-
+	float alpha = 0.5;
 	for (auto j = 0u; j < texDims_.y; j++)
 	{
 		//LogProcessorInfo(j<< "/" <<texDims_.y);
@@ -171,7 +184,7 @@ void LICProcessor::process()
 				auto vector = Integrator::sampleFromField(vr, vectorFieldDims_, vec2(i*xratio, j*yratio));
 				float magnitude = glm::length(vector);
 				float magnitudeRatio = (magnitude - magnitudeMin) / (magnitudeMax - magnitudeMin);
-				lr->setFromDVec4(size2_t(i, j), dvec4(magnitudeRatio*val, val, (1-magnitudeRatio)*val, 255));
+				lr->setFromDVec4(size2_t(i, j), dvec4(magnitudeRatio*val, val, val, 255));
 			}
 		}
 
@@ -186,7 +199,7 @@ std::vector<std::vector<double> > LICProcessor::slowLic(const VolumeRAM* vr, con
 	//vector field 
 	
 	LogProcessorInfo("base lic started");
-	float stepsize = 0.01; // for integrator
+	float stepsize = 0.1; // for integrator
 	uint32_t maxsteps = 10000; // for integrator
 	std::vector<std::vector<double> > licTexture(texDims_.x, std::vector<double>(texDims_.y, 0));
 	//choose smaller ratio for equidistant stepsize
@@ -273,7 +286,7 @@ std::vector<std::vector<double> > LICProcessor::fastLic(const VolumeRAM* vr, con
 	//vector field 
 	
 	LogProcessorInfo("fast lic started");
-	float stepsize = 0.01; // for integrator
+	float stepsize = 0.1; // for integrator
 	uint32_t maxsteps = 10000; // for integrator
 	std::vector<std::vector<double> > licTexture(texDims_.x, std::vector<double>(texDims_.y, 0));
 	//choose smaller ratio for equidistant stepsize
