@@ -90,6 +90,7 @@ public:
 	IntProperty kernelSize_;
 	FloatProperty contrastMean_;
 	FloatProperty contrastSD_;
+	BoolProperty colourTexture_;
 
 //Attributes
 private:

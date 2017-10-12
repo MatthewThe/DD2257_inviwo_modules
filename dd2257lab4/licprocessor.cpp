@@ -41,6 +41,7 @@ LICProcessor::LICProcessor()
 	, kernelSize_("kernelLength", "Kernel Length", 50, 10, 100)
 	, contrastMean_("contrastMean", "Contrast Mean", 0.5, 0, 1)
 	, contrastSD_("contrastSD", "Contrast SD", 0.5, 0, 1)
+	, colourTexture_("colourTexture", "Colour Texture", FALSE)
 	//, kernelLength_(50) /* symmetric around base pixel, i.e. the full kernel is of size (2*kernelLength_+1) */
     // TODO: Register properties
 {
@@ -57,6 +58,7 @@ LICProcessor::LICProcessor()
 	addProperty(kernelSize_);
 	addProperty(contrastMean_);
 	addProperty(contrastSD_);
+	addProperty(colourTexture_);
 }
 
 
@@ -106,12 +108,23 @@ void LICProcessor::process()
 	int counter = 0;
 	float sum = 0.;
 	float sumSquare = 0.;
+	float magnitudeMax = 0.;
+	float magnitudeMin = HUGE_VALF;
 	for (auto j = 0u; j < texDims_.y; j++) {
 		for (auto i = 0u; i < texDims_.x; i++) {
 			int val = int(licTexture[i][j]);
 			if (licTexture[i][j] != 255) {	/* if the pixel is not black*/
 				sum += licTexture[i][j];
 				sumSquare += licTexture[i][j] * licTexture[i][j];
+				// get max and min magnitude of the vector field for later colour LIC texture
+				auto vector = vr->getAsDVec2(size3_t(i*vectorFieldDims_.x / texDims_.x, j*vectorFieldDims_.y / texDims_.y, 0));
+				float magnitude = sqrt(vector[0] * vector[0] + vector[1] * vector[1]);
+				if (magnitude > magnitudeMax) {
+					magnitudeMax = magnitude;
+				}
+				else if (magnitude < magnitudeMin) {
+					magnitudeMin = magnitude;
+				}
 			}
 			counter++;
 		}
@@ -133,7 +146,16 @@ void LICProcessor::process()
 			int val = int(licTexture[i][j]);
 			// contrast enhancement
 			val = meanAfter + stretchFactor*(val - meanBefore);
-			lr->setFromDVec4(size2_t(i, j), dvec4(val, val, val, 255));
+			if (colourTexture_.get() == FALSE) {
+				lr->setFromDVec4(size2_t(i, j), dvec4(val, val, val, 255));
+			}
+			else {
+				// colour LIC texture
+				auto vector = vr->getAsDVec2(size3_t(i*vectorFieldDims_.x / texDims_.x, j*vectorFieldDims_.y / texDims_.y, 0));
+				float magnitude = sqrt(vector[0] * vector[0] + vector[1] * vector[1]);
+				float magnitudeRatio = (magnitude - magnitudeMin) / (magnitudeMax-magnitudeMin);
+				lr->setFromDVec4(size2_t(i, j), dvec4(magnitudeRatio*val, val, (1-magnitudeRatio)*val, 255));
+			}
 		}
 
 	}
