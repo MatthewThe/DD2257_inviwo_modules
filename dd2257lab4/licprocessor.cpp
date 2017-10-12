@@ -165,7 +165,6 @@ void LICProcessor::process()
 	float meanAfter = contrastMean_.get()*255;
 	float SDAfter = contrastSD_.get()*255;
 	float stretchFactor = SDAfter / SDBefore;
-	float alpha = 0.5;
 	for (auto j = 0u; j < texDims_.y; j++)
 	{
 		//LogProcessorInfo(j<< "/" <<texDims_.y);
@@ -175,6 +174,7 @@ void LICProcessor::process()
 			// contrast enhancement
 			if (enhanceContrast_.get()) {
 				val = meanAfter + stretchFactor*(val - meanBefore);
+				val = std::min(255, std::max(0, val));
 			}
 			if (!colourTexture_.get()) {
 				lr->setFromDVec4(size2_t(i, j), dvec4(val, val, val, 255));
@@ -184,7 +184,7 @@ void LICProcessor::process()
 				auto vector = Integrator::sampleFromField(vr, vectorFieldDims_, vec2(i*xratio, j*yratio));
 				float magnitude = glm::length(vector);
 				float magnitudeRatio = (magnitude - magnitudeMin) / (magnitudeMax - magnitudeMin);
-				lr->setFromDVec4(size2_t(i, j), dvec4(magnitudeRatio*val, val, val, 255));
+				lr->setFromDVec4(size2_t(i, j), dvec4(magnitudeRatio*val, val, (1-magnitudeRatio)*val, 255));
 			}
 		}
 
@@ -226,7 +226,7 @@ std::vector<std::vector<double> > LICProcessor::slowLic(const VolumeRAM* vr, con
 		{
 			/*make streamline forward and backward*/
 
-			vec2 startPos = vec2(pixeli / minSizePixel, pixelj / minSizePixel);
+			vec2 startPos = vec2(pixeli / xratio, pixelj / yratio);
 
 			std::vector<vec2> streamlineForward = getStreamLine(vr, stepsize, maxsteps, kernelSize_.get(), minSizePixel, startPos);
 			std::vector<vec2> streamlineBackward = getStreamLine(vr, -1*stepsize, maxsteps, kernelSize_.get(), minSizePixel, startPos);
@@ -251,8 +251,8 @@ std::vector<std::vector<double> > LICProcessor::slowLic(const VolumeRAM* vr, con
 			{
 				bufferPopVector = equidistantPointsF.back();
 				equidistantPointsF.pop_back();
-				bufferXpixel = floor(minSizePixel*bufferPopVector.x);
-				bufferYpixel = floor(minSizePixel*bufferPopVector.y);
+				bufferXpixel = floor(xratio*bufferPopVector.x);
+				bufferYpixel = floor(yratio*bufferPopVector.y);
 				if (bufferXpixel < 0 || bufferYpixel < 0 || bufferXpixel > (texDims_.x - 1) || bufferYpixel > (texDims_.y - 1))
 				{
 					//LogProcessorInfo("pixel outside" << bufferXpixel << " " << bufferYpixel);
@@ -318,7 +318,7 @@ std::vector<std::vector<double> > LICProcessor::fastLic(const VolumeRAM* vr, con
 				continue;
 			}
 			
-			vec2 startPos = vec2(pixeli / minSizePixel, pixelj / minSizePixel);
+			vec2 startPos = vec2(pixeli / xratio, pixelj / yratio);
 
 			std::vector<vec2> streamlineForward = getStreamLine(vr, stepsize, maxsteps, maxArcLength, minSizePixel, startPos);
 			std::vector<vec2> streamlineBackward = getStreamLine(vr, -1*stepsize, maxsteps, maxArcLength, minSizePixel, startPos);
@@ -351,8 +351,8 @@ std::vector<std::vector<double> > LICProcessor::fastLic(const VolumeRAM* vr, con
 				vec2 currentPos = equidistantPointsB.at(index);
 				while (kernelIndex - index < kernelSize_.get() && kernelIndex < equidistantPointsB.size()) {
 					bufferPopVector = equidistantPointsB.at(kernelIndex++);
-					bufferXpixel = floor(minSizePixel*bufferPopVector.x);
-					bufferYpixel = floor(minSizePixel*bufferPopVector.y);
+					bufferXpixel = floor(xratio*bufferPopVector.x);
+					bufferYpixel = floor(yratio*bufferPopVector.y);
 					if (bufferXpixel < 0 || bufferYpixel < 0 || bufferXpixel > (texDims_.x - 1) || bufferYpixel > (texDims_.y - 1))
 					{
 						//LogProcessorInfo("pixel outside" << bufferXpixel << " " << bufferYpixel);
@@ -375,8 +375,8 @@ std::vector<std::vector<double> > LICProcessor::fastLic(const VolumeRAM* vr, con
 					kernelValues.pop_front();
 				}
 				
-				float currentXpixel = minSizePixel * currentPos.x;
-				float currentYpixel = minSizePixel * currentPos.y;
+				float currentXpixel = xratio * currentPos.x;
+				float currentYpixel = yratio * currentPos.y;
 				
 				size_t currentXpixelInt = std::min(static_cast<size_t>(std::floor(currentXpixel)), texDims_.x - 1);
 				size_t currentYpixelInt = std::min(static_cast<size_t>(std::floor(currentYpixel)), texDims_.y - 1);
